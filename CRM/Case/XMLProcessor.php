@@ -56,7 +56,7 @@ class CRM_Case_XMLProcessor {
    * This appears to be "label_b_a", but IMHO "name_b_a" would be more
    * sensible.
    */
-  const REL_TYPE_CNAME = 'label_b_a';
+  const REL_TYPE_CNAME = 'name_b_a';
 
   /**
    * @param $caseType
@@ -115,7 +115,7 @@ class CRM_Case_XMLProcessor {
 
       self::$relationshipTypes = array();
       foreach ($relationshipInfo as $id => $info) {
-        self::$relationshipTypes[$id] = $info[CRM_Case_XMLProcessor::REL_TYPE_CNAME];
+        self::$relationshipTypes[$id] = $info["{$type}_b_a"];
       }
     }
 
