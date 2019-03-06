@@ -804,7 +804,7 @@ class CRM_Contribute_BAO_Contribution extends CRM_Contribute_DAO_Contribution {
           ]
         );
       }
-      $typeField = CRM_Financial_DAO_FinancialType::export();
+
       $financialAccount = CRM_Financial_DAO_FinancialAccount::export();
 
       $contributionPage = array(
@@ -872,7 +872,7 @@ class CRM_Contribute_BAO_Contribution extends CRM_Contribute_DAO_Contribution {
         ),
       );
 
-      $fields = array_merge($fields, $typeField, $contributionPage,
+      $fields = array_merge($fields, $contributionPage,
         $contributionNote, $extraFields, $softCreditFields, $financialAccount, $campaignTitle,
         CRM_Core_BAO_CustomField::getFieldsForImport('Contribution', FALSE, FALSE, FALSE, $checkPermission)
       );
@@ -939,6 +939,30 @@ class CRM_Contribute_BAO_Contribution extends CRM_Contribute_DAO_Contribution {
       $queryParams = [1 => [$relationTypeId, 'Integer']];
       return CRM_Core_DAO::singleValueQuery("SELECT id FROM civicrm_financial_account WHERE is_default = 1 AND financial_account_type_id = %1", $queryParams);
     }
+  }
+
+  /**
+   * Get memberships realted to the contribution.
+   *
+   * @param int $contributionID
+   *
+   * @return array
+   */
+  protected static function getRelatedMemberships($contributionID) {
+    $contribution = new CRM_Contribute_BAO_Contribution();
+    $contribution->id = $contributionID;
+    $contribution->fetch(TRUE);
+    $contribution->loadRelatedMembershipObjects();
+    $result = CRM_Utils_Array::value('membership', $contribution->_relatedObjects, []);
+    $memberships = [];
+    foreach ($result as $membership) {
+      if (empty($membership)) {
+        continue;
+      }
+      // @todo - remove this again & just call api in the first place.
+      _civicrm_api3_object_to_array($membership, $memberships[$membership->id]);
+    }
+    return $memberships;
   }
 
   /**
@@ -5231,18 +5255,14 @@ LEFT JOIN  civicrm_contribution on (civicrm_contribution.contact_id = civicrm_co
    * @throws \CiviCRM_API3_Exception
    */
   public static function updateMembershipBasedOnCompletionOfContribution($contribution, $primaryContributionID, $changeDate) {
-    $contribution->loadRelatedMembershipObjects();
-    if (empty($contribution->_relatedObjects['membership'])) {
-      return;
-    }
-    $memberships = $contribution->_relatedObjects['membership'];
-    foreach ($memberships as $membershipTypeIdKey => $membership) {
+    $memberships = self::getRelatedMemberships($contribution->id);
+    foreach ($memberships as $membership) {
       if ($membership) {
         $membershipParams = array(
-          'id' => $membership->id,
-          'contact_id' => $membership->contact_id,
-          'is_test' => $membership->is_test,
-          'membership_type_id' => $membership->membership_type_id,
+          'id' => $membership['id'],
+          'contact_id' => $membership['contact_id'],
+          'is_test' => $membership['is_test'],
+          'membership_type_id' => $membership['membership_type_id'],
           'membership_activity_status' => 'Completed',
         );
 
