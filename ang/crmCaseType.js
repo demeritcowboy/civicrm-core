@@ -324,6 +324,17 @@
           }
         });
       });
+
+      // fun with name vs label
+      _.each($scope.caseType.definition.caseRoles, function (role) {
+        role.label = role.name;
+        _.each(apiCalls.relTypes.values, function (v) {
+          if (v.name_b_a == role.name) {
+            role.label = v.label_b_a;
+            return false;
+          }
+        });
+      });
     }
 
     /// initializes the selected statuses
