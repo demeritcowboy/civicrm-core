@@ -729,7 +729,7 @@ class CRM_Contact_BAO_Query {
       if (
         !empty($this->_paramLookup[$name])
         || !empty($this->_returnProperties[$name])
-        || $this->pseudoConstantNameIsInReturnProperties($field)
+        || $this->pseudoConstantNameIsInReturnProperties($field, $name)
         || $makeException
       ) {
         if ($cfID) {
@@ -870,10 +870,10 @@ class CRM_Contact_BAO_Query {
                   $this->_select[$name] = "{$field['where']} as `$name`";
                 }
               }
+              elseif ($this->pseudoConstantNameIsInReturnProperties($field, $name)) {
+                $this->addPseudoconstantFieldToSelect($name);
+              }
               else {
-                if ($this->pseudoConstantNameIsInReturnProperties($field, $name)) {
-                  $this->addPseudoconstantFieldToSelect($field, $name, $tableName);
-                }
                 $this->_select[$name] = str_replace('civicrm_contact.', 'contact_a.', "{$field['where']} as `$name`");
               }
               if (!in_array($tName, array('state_province', 'country', 'county'))) {
@@ -1899,6 +1899,8 @@ class CRM_Contact_BAO_Query {
       case 'activity_date':
       case 'activity_date_low':
       case 'activity_date_high':
+      case 'activity_date_time_low':
+      case 'activity_date_time_high':
       case 'activity_role':
       case 'activity_status_id':
       case 'activity_status':
@@ -6339,7 +6341,8 @@ AND   displayRelType.is_active = 1
           // ORDER BY field('contribution_status_id', 2,1,4)
           // we can remove a join. In the case of the option value join it is
           /// a join known to cause slow queries.
-          // @todo cover other pseudoconstant types. Limited to option group ones in the
+          // @todo cover other pseudoconstant types. Limited to option group ones  & Foreign keys
+          // matching an id+name parrern in the
           // first instance for scope reasons. They require slightly different handling as the column (label)
           // is not declared for them.
           // @todo so far only integer fields are being handled. If we add string fields we need to look at
@@ -6348,11 +6351,17 @@ AND   displayRelType.is_active = 1
           $pseudoConstantMetadata = CRM_Utils_Array::value('pseudoconstant', $fieldSpec, FALSE);
           if (!empty($pseudoConstantMetadata)
           ) {
-            if (!empty($pseudoConstantMetadata['optionGroupName'])) {
+            if (!empty($pseudoConstantMetadata['optionGroupName'])
+              || $this->isPseudoFieldAnFK($fieldSpec)
+            ) {
               $sortedOptions = $fieldSpec['bao']::buildOptions($fieldSpec['name'], NULL, [
-                'orderColumn' => 'label',
+                'orderColumn' => CRM_Utils_Array::value('labelColumn', $pseudoConstantMetadata, 'label'),
               ]);
-              $order = str_replace("$field", "field({$fieldSpec['name']}," . implode(',', array_keys($sortedOptions)) . ")", $order);
+              $fieldIDsInOrder = implode(',', array_keys($sortedOptions));
+              // Pretty sure this validation ALSO happens in the order clause & this can't be reached but...
+              // this might give some early warning.
+              CRM_Utils_Type::validate($fieldIDsInOrder, 'CommaSeparatedIntegers');
+              $order = str_replace("$field", "field({$fieldSpec['name']},$fieldIDsInOrder)", $order);
             }
             //CRM-12565 add "`" around $field if it is a pseudo constant
             // This appears to be for 'special' fields like locations with appended numbers or hyphens .. maybe.
@@ -6433,11 +6442,19 @@ AND   displayRelType.is_active = 1
    * @return bool
    */
   private function pseudoConstantNameIsInReturnProperties($field, $fieldName = NULL) {
-    if (!isset($field['pseudoconstant']['optionGroupName'])) {
+    $realField = $this->getMetadataForRealField($fieldName);
+    if (!isset($realField['pseudoconstant'])) {
+      return FALSE;
+    }
+    $pseudoConstant = $realField['pseudoconstant'];
+    if (empty($pseudoConstant['optionGroupName']) &&
+      CRM_Utils_Array::value('labelColumn', $pseudoConstant) !== 'name') {
+      // We are increasing our pseudoconstant handling - but still very cautiously,
+      // hence the check for labelColumn === name
       return FALSE;
     }
 
-    if (CRM_Utils_Array::value($field['pseudoconstant']['optionGroupName'], $this->_returnProperties)) {
+    if (!empty($pseudoConstant['optionGroupName']) && CRM_Utils_Array::value($pseudoConstant['optionGroupName'], $this->_returnProperties)) {
       return TRUE;
     }
     if (CRM_Utils_Array::value($fieldName, $this->_returnProperties)) {
@@ -6623,11 +6640,53 @@ AND   displayRelType.is_active = 1
     $sortByChar = FALSE, $groupContacts = FALSE,
     $additionalWhereClause = NULL, $sortOrder = NULL,
     $additionalFromClause = NULL, $skipOrderAndLimit = FALSE) {
+
+    $sqlParts = $this->getSearchSQLParts($offset, $rowCount, $sort, $count, $includeContactIds, $sortByChar, $groupContacts, $additionalWhereClause, $sortOrder, $additionalFromClause);
+
+    if ($skipOrderAndLimit) {
+      CRM_Core_Error::deprecatedFunctionWarning('skipOrderAndLimit is deprected - call getSearchSQLParts & construct it in the calling function');
+      $query = "{$sqlParts['select']} {$sqlParts['from']} {$sqlParts['where']} {$sqlParts['having']} {$sqlParts['group_by']}";
+    }
+    else {
+      $query = "{$sqlParts['select']} {$sqlParts['from']} {$sqlParts['where']} {$sqlParts['having']} {$sqlParts['group_by']} {$sqlParts['order_by']} {$sqlParts['limit']}";
+    }
+    return $query;
+  }
+
+  /**
+   * Get the component parts of the search query as an array.
+   *
+   * @param int $offset
+   *   The offset for the query.
+   * @param int $rowCount
+   *   The number of rows to return.
+   * @param string|CRM_Utils_Sort $sort
+   *   The order by string.
+   * @param bool $count
+   *   Is this a count only query ?.
+   * @param bool $includeContactIds
+   *   Should we include contact ids?.
+   * @param bool $sortByChar
+   *   If true returns the distinct array of first characters for search results.
+   * @param bool $groupContacts
+   *   If true, return only the contact ids.
+   * @param string $additionalWhereClause
+   *   If the caller wants to further restrict the search (used for components).
+   * @param null $sortOrder
+   * @param string $additionalFromClause
+   *   Should be clause with proper joins, effective to reduce where clause load.
+   *
+   * @return array
+   */
+  public function getSearchSQLParts($offset = 0, $rowCount = 0, $sort = NULL,
+    $count = FALSE, $includeContactIds = FALSE,
+    $sortByChar = FALSE, $groupContacts = FALSE,
+    $additionalWhereClause = NULL, $sortOrder = NULL,
+    $additionalFromClause = NULL) {
     if ($includeContactIds) {
       $this->_includeContactIds = TRUE;
       $this->_whereClause = $this->whereClause();
     }
-
     $onlyDeleted = in_array([
       'deleted_contacts',
       '=',
@@ -6668,15 +6727,9 @@ AND   displayRelType.is_active = 1
       $groupBy = " GROUP BY " . implode(', ', $groupByCols);
     }
 
-    $order = $orderBy = $limit = '';
+    $order = $orderBy = '';
     if (!$count) {
       list($order, $additionalFromClause) = $this->prepareOrderBy($sort, $sortByChar, $sortOrder, $additionalFromClause);
-
-      if ($rowCount > 0 && $offset >= 0) {
-        $offset = CRM_Utils_Type::escape($offset, 'Int');
-        $rowCount = CRM_Utils_Type::escape($rowCount, 'Int');
-        $limit = " LIMIT $offset, $rowCount ";
-      }
     }
     // Two cases where we are disabling FGB (FULL_GROUP_BY_MODE):
     //   1. Expecting the search query to return all the first single letter characters of contacts ONLY, but when FGB is enabled
@@ -6711,14 +6764,17 @@ AND   displayRelType.is_active = 1
     if ($this->_displayRelationshipType) {
       $this->filterRelatedContacts($from, $where, $having);
     }
+    $limit = (!$count && $rowCount) ? " LIMIT " . CRM_Utils_Type::escape($offset, 'Int') . ", " . CRM_Utils_Type::escape($rowCount, 'Int') : '';
 
-    if ($skipOrderAndLimit) {
-      $query = "$select $from $where $having $groupBy";
-    }
-    else {
-      $query = "$select $from $where $having $groupBy $order $limit";
-    }
-    return $query;
+    return [
+      'select' => $select,
+      'from' => $from,
+      'where' => $where,
+      'order_by' => $order,
+      'group_by' => $groupBy,
+      'having' => $having,
+      'limit' => $limit,
+    ];
   }
 
   /**
@@ -6739,7 +6795,7 @@ AND   displayRelType.is_active = 1
     if (!empty($field) && empty($field['name'])) {
       // standardising field formatting here - over time we can phase out variants.
       // all paths using this currently unit tested
-      $field['name'] = CRM_Utils_Array::value('field_name', $field, $field['idCol']);
+      $field['name'] = CRM_Utils_Array::value('field_name', $field, CRM_Utils_Array::value('idCol', $field, $fieldName));
     }
     return $field;
   }
@@ -6753,7 +6809,24 @@ AND   displayRelType.is_active = 1
    */
   protected function getMetadataForRealField($fieldName) {
     $field = $this->getMetadataForField($fieldName);
-    return empty($field['is_pseudofield_for']) ? $field : $this->getMetadataForField($field['is_pseudofield_for']);
+    if (!empty($field['is_pseudofield_for'])) {
+      $field = $this->getMetadataForField($field['is_pseudofield_for']);
+      $field['pseudofield_name'] = $fieldName;
+    }
+    elseif (!empty($field['pseudoconstant'])) {
+      if (!empty($field['pseudoconstant']['optionGroupName'])) {
+        $field['pseudofield_name'] = $field['pseudoconstant']['optionGroupName'];
+        if (empty($field['table_name'])) {
+          if (!empty($field['where'])) {
+            $field['table_name'] = explode('.', $field['where'])[0];
+          }
+          else {
+            $field['table_name'] = 'civicrm_contact';
+          }
+        }
+      }
+    }
+    return $field;
   }
 
   /**
@@ -6764,21 +6837,46 @@ AND   displayRelType.is_active = 1
    * @todo - so far this applies to a narrow range of pseudocontants. We are adding them
    * carefully with test coverage but aim to extend.
    *
-   * @param array $field
    * @param string $name
-   * @param string $tableName
    */
-  protected function addPseudoconstantFieldToSelect($field, $name, $tableName) {
-    $pseudoFieldName = $field['pseudoconstant']['optionGroupName'];
-    $this->_pseudoConstantsSelect[$pseudoFieldName] = [
-      'pseudoField' => $field['name'],
-      'idCol' => $name,
-      'field_name' => $field['name'],
-      'bao' => $field['bao'],
-      'pseudoconstant' => $field['pseudoconstant'],
-    ];
-    $this->_tables[$tableName] = 1;
-    $this->_element[$pseudoFieldName] = 1;
+  protected function addPseudoconstantFieldToSelect($name) {
+    $field = $this->getMetadataForRealField($name);
+    $realFieldName = $field['name'];
+    $pseudoFieldName = CRM_Utils_Array::value('pseudofield_name', $field);
+    if ($pseudoFieldName) {
+      // @todo - we don't really need to build this array now we have metadata more available with getMetadataForField fn.
+      $this->_pseudoConstantsSelect[$pseudoFieldName] = [
+        'pseudoField' => $pseudoFieldName,
+        'idCol' => $realFieldName,
+        'field_name' => $field['name'],
+        'bao' => $field['bao'],
+        'pseudoconstant' => $field['pseudoconstant'],
+      ];
+    }
+
+    $this->_tables[$field['table_name']] = 1;
+    $this->_element[$realFieldName] = 1;
+    $this->_select[$field['name']] = str_replace('civicrm_contact.', 'contact_a.', "{$field['where']} as `$realFieldName`");
+  }
+
+  /**
+   * Is this pseudofield a foreign key constraint.
+   *
+   * We are trying to cautiously expand our pseudoconstant handling. This check allows us
+   * to extend to a narrowly defined type (and then only if the pseudofield is in the fields
+   * array which is done for contributions which are mostly handled as pseudoconstants.
+   *
+   * @param $fieldSpec
+   *
+   * @return bool
+   */
+  protected function isPseudoFieldAnFK($fieldSpec) {
+    if (empty($fieldSpec['FKClassName'])
+      || CRM_Utils_Array::value('keyColumn', $fieldSpec['pseudoconstant']) !== 'id'
+      || CRM_Utils_Array::value('labelColumn', $fieldSpec['pseudoconstant']) !== 'name') {
+      return FALSE;
+    }
+    return TRUE;
   }
 
 }
