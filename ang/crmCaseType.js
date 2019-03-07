@@ -439,13 +439,16 @@
     $scope.addRole = function(roles, roleName) {
       var names = _.pluck($scope.caseType.definition.caseRoles, 'name');
       if (!_.contains(names, roleName)) {
-        if (_.where($scope.relationshipTypeOptions, {id: roleName}).length) {
-          roles.push({name: roleName});
+        var relTypeOpt = _.where($scope.relationshipTypeOptions, {id: roleName});
+        if (relTypeOpt.length) {
+          roles.push({name: roleName, label: relTypeOpt[0].text});
         } else {
           CRM.loadForm(CRM.url('civicrm/admin/reltype', {action: 'add', reset: 1, label_a_b: roleName, label_b_a: roleName}))
             .on('crmFormSuccess', function(e, data) {
-              roles.push({name: data.relationshipType[REL_TYPE_CNAME]});
-              $scope.relationshipTypeOptions.push({id: data.relationshipType[REL_TYPE_CNAME], text: data.relationshipType.label_b_a});
+              var newTypes = _.values(data.relationshipType);
+              var newType = newTypes[0];
+              roles.push({name: newType.name_b_a, label: newType.label_b_a});
+              $scope.relationshipTypeOptions.push({id: newType.name_b_a, text: newType.label_b_a});
               $scope.$digest();
             });
         }
