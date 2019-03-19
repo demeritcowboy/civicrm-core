@@ -26,44 +26,33 @@
  */
 
 /**
+ * This file contains various support functions for test entities in CiviCRM.
+ * Historically there is a lot of inconsistency as to how test entities are displayed.
+ * This class helps resolve that.
  *
  * @package CRM
- * @copyright TTTP
- * $Id$
- *
+ * @copyright CiviCRM LLC (c) 2004-2019
  */
 
 /**
- * Retrieve CiviCRM settings from the api for use in templates.
- *
- * @param $params
- * @param $smarty
- *
- * @return int|string|null
+ * Class CRM_Core_TestEntity.
  */
-function smarty_function_crmSetting($params, &$smarty) {
+class CRM_Core_TestEntity {
 
-  $errorScope = CRM_Core_TemporaryErrorScope::create(array('CRM_Utils_REST', 'fatal'));
-  unset($params['method']);
-  unset($params['assign']);
-  $params['version'] = 3;
+  // @todo extend this class to include functions that control when/where test entities are displayed
+  //  and then use those functions everywhere we can display test transactions.
+  // Ideally the display of test transactions would be a per-user setting or permission
+  //  so it can be toggled on/off as required and does not affect "day-to-day" usage.
 
-  require_once 'api/api.php';
-  $result = civicrm_api('setting', 'getvalue', $params);
-  unset($errorScope);
-  // Core-688 FALSE is returned by Boolean settings, thus giving false errors.
-  if ($result === NULL) {
-    $smarty->trigger_error("Unknown error");
-    return NULL;
+  /**
+   * Append "test" text to a string. eg. Member Dues (test) or My registration (test)
+   *
+   * @param string $text
+   *
+   * @return string
+   */
+  public static function appendTestText($text) {
+    return $text . ' ' . ts('(test)');
   }
 
-  if (empty($params['var'])) {
-    return is_numeric($result) ? $result : json_encode($result);
-  }
-  if (!empty($params['json'])) {
-    $smarty->assign($params["var"], json_encode($result));
-  }
-  else {
-    $smarty->assign($params["var"], $result);
-  }
 }
