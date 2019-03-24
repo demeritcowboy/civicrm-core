@@ -1384,6 +1384,8 @@ class CRM_Contact_BAO_Query {
       }
     }
     elseif ($sortByChar) {
+      // @fixme add the deprecated warning back in (it breaks CRM_Contact_SelectorTest::testSelectorQuery)
+      // CRM_Core_Error::deprecatedFunctionWarning('sort by char is deprecated - use alphabetQuery method');
       $select = 'SELECT DISTINCT LEFT(contact_a.sort_name, 1) as sort_name';
       $from = $this->_simpleFromClause;
     }
@@ -2680,6 +2682,18 @@ class CRM_Contact_BAO_Query {
         //CRM-14263 further handling of address joins further down...
         return " $side JOIN civicrm_address ON ( contact_a.id = civicrm_address.contact_id {$limitToPrimaryClause} )";
 
+      case 'civicrm_state_province':
+        // This is encountered when doing an export after having applied a 'sort' - it pretty much implies primary
+        // but that will have been implied-in by the calling function.
+        // test cover in testContactIDQuery
+        return " $side JOIN civicrm_state_province ON ( civicrm_address.state_province_id = civicrm_state_province.id )";
+
+      case 'civicrm_country':
+        // This is encountered when doing an export after having applied a 'sort' - it pretty much implies primary
+        // but that will have been implied-in by the calling function.
+        // test cover in testContactIDQuery
+        return " $side JOIN civicrm_country ON ( civicrm_address.country_id = civicrm_country.id )";
+
       case 'civicrm_phone':
         return " $side JOIN civicrm_phone ON (contact_a.id = civicrm_phone.contact_id {$limitToPrimaryClause}) ";
 
@@ -2699,8 +2713,9 @@ class CRM_Contact_BAO_Query {
         return " $side JOIN civicrm_openid ON ( civicrm_openid.contact_id = contact_a.id {$limitToPrimaryClause} )";
 
       case 'civicrm_worldregion':
-        $from = " $side JOIN civicrm_country ON civicrm_address.country_id = civicrm_country.id ";
-        return "$from $side JOIN civicrm_worldregion ON civicrm_country.region_id = civicrm_worldregion.id ";
+        // We can be sure from the calling function that country will already be joined in.
+        // we really don't need world_region - we could use a pseudoconstant for it.
+        return "$side JOIN civicrm_worldregion ON civicrm_country.region_id = civicrm_worldregion.id ";
 
       case 'civicrm_location_type':
         return " $side JOIN civicrm_location_type ON civicrm_address.location_type_id = civicrm_location_type.id ";
@@ -4935,18 +4950,19 @@ civicrm_relationship.start_date > {$today}
   }
 
   /**
-   * Create and query the db for a contact search.
+   * Create and query the db for the list of all first letters used by contacts
    *
    * @return CRM_Core_DAO
    */
   public function alphabetQuery() {
-    $query = $this->getSearchSQL(NULL, NULL, NULL, FALSE, FALSE, TRUE);
-
+    $sqlParts = $this->getSearchSQLParts(NULL, NULL, NULL, FALSE, FALSE, TRUE);
+    $query = "SELECT DISTINCT LEFT(contact_a.sort_name, 1) as sort_name
+      {$this->_simpleFromClause}
+      {$sqlParts['where']}
+      {$sqlParts['having']}
+      GROUP BY sort_name
+      ORDER BY sort_name asc";
     $dao = CRM_Core_DAO::executeQuery($query);
-
-    // We can always call this - it will only re-enable if it was originally enabled.
-    CRM_Core_DAO::reenableFullGroupByMode();
-
     return $dao;
   }
 
@@ -6257,16 +6273,13 @@ AND   displayRelType.is_active = 1
    *
    * @param string|CRM_Utils_Sort $sort
    *   The order by string.
-   * @param bool $sortByChar
-   *   If true returns the distinct array of first characters for search results.
    * @param null $sortOrder
    *   Who knows? Hu knows. He who knows Hu knows who.
-   * @param string $additionalFromClause
-   *   Should be clause with proper joins, effective to reduce where clause load.
+   *
    * @return array
    *   list(string $orderByClause, string $additionalFromClause).
    */
-  protected function prepareOrderBy($sort, $sortByChar, $sortOrder, $additionalFromClause) {
+  protected function prepareOrderBy($sort, $sortOrder) {
     $orderByArray = [];
     $orderBy = '';
 
@@ -6302,15 +6315,12 @@ AND   displayRelType.is_active = 1
           }
         }
       }
-      elseif ($sortByChar) {
-        $orderBy = " sort_name asc";
-      }
       else {
         $orderBy = " contact_a.sort_name ASC, contact_a.id";
       }
     }
     if (!$orderBy) {
-      return [NULL, $additionalFromClause];
+      return NULL;
     }
     // Remove this here & add it at the end for simplicity.
     $order = trim($orderBy);
@@ -6320,26 +6330,18 @@ AND   displayRelType.is_active = 1
       $orderByClauseParts = explode(' ', trim($orderByClause));
       $field = $orderByClauseParts[0];
       $direction = isset($orderByClauseParts[1]) ? $orderByClauseParts[1] : 'asc';
+      $fieldSpec = $this->getMetadataForRealField($field);
 
+      if ($this->_returnProperties === []) {
+        if (!empty($fieldSpec['table_name']) && !isset($this->_tables[$fieldSpec['table_name']])) {
+          $this->_tables[$fieldSpec['table_name']] = 1;
+          $order = $fieldSpec['where'] . ' ' . $direction;
+        }
+
+      }
       switch ($field) {
-        case 'city':
-        case 'postal_code':
-          $this->_tables["civicrm_address"] = $this->_whereTables["civicrm_address"] = 1;
-          $order = str_replace($field, "civicrm_address.{$field}", $order);
-          break;
 
-        case 'country':
-        case 'state_province':
-          $this->_tables["civicrm_{$field}"] = $this->_whereTables["civicrm_{$field}"] = 1;
-          if (is_array($this->_returnProperties) && empty($this->_returnProperties)) {
-            $additionalFromClause .= " LEFT JOIN civicrm_{$field} ON civicrm_{$field}.id = civicrm_address.{$field}_id";
-          }
-          $order = str_replace($field, "civicrm_{$field}.name", $order);
-          break;
-
-        case 'email':
-          $this->_tables["civicrm_email"] = $this->_whereTables["civicrm_email"] = 1;
-          $order = str_replace($field, "civicrm_email.{$field}", $order);
+        case 'placeholder-will-remove-next-pr-but-jenkins-will-not-accept-without-and-removing-switch-will-make-hard-to-read':
           break;
 
         default:
@@ -6363,7 +6365,6 @@ AND   displayRelType.is_active = 1
           // is not declared for them.
           // @todo so far only integer fields are being handled. If we add string fields we need to look at
           // escaping.
-          $fieldSpec = $this->getMetadataForRealField($field);
           $pseudoConstantMetadata = CRM_Utils_Array::value('pseudoconstant', $fieldSpec, FALSE);
           if (!empty($pseudoConstantMetadata)
           ) {
@@ -6393,13 +6394,9 @@ AND   displayRelType.is_active = 1
 
     // The above code relies on crazy brittle string manipulation of a peculiarly-encoded ORDER BY
     // clause. But this magic helper which forgivingly reescapes ORDER BY.
-    // Note: $sortByChar implies that $order was hard-coded/trusted, so it can do funky things.
-    if ($sortByChar) {
-      return array(' ORDER BY ' . $order, $additionalFromClause);
-    }
     if ($order) {
       $order = CRM_Utils_Type::escape($order, 'MysqlOrderBy');
-      return array(' ORDER BY ' . $order, $additionalFromClause);
+      return ' ORDER BY ' . $order;
     }
   }
 
@@ -6659,6 +6656,11 @@ AND   displayRelType.is_active = 1
 
     $sqlParts = $this->getSearchSQLParts($offset, $rowCount, $sort, $count, $includeContactIds, $sortByChar, $groupContacts, $additionalWhereClause, $sortOrder, $additionalFromClause);
 
+    if ($sortByChar) {
+      CRM_Core_Error::deprecatedFunctionWarning('sort by char is deprecated - use alphabetQuery method');
+      $sqlParts['order_by'] = 'ORDER BY sort_name asc';
+    }
+
     if ($skipOrderAndLimit) {
       CRM_Core_Error::deprecatedFunctionWarning('skipOrderAndLimit is deprected - call getSearchSQLParts & construct it in the calling function');
       $query = "{$sqlParts['select']} {$sqlParts['from']} {$sqlParts['where']} {$sqlParts['having']} {$sqlParts['group_by']}";
@@ -6745,14 +6747,14 @@ AND   displayRelType.is_active = 1
 
     $order = $orderBy = '';
     if (!$count) {
-      list($order, $additionalFromClause) = $this->prepareOrderBy($sort, $sortByChar, $sortOrder, $additionalFromClause);
+      if (!$sortByChar) {
+        $order = $this->prepareOrderBy($sort, $sortOrder);
+      }
     }
-    // Two cases where we are disabling FGB (FULL_GROUP_BY_MODE):
-    //   1. Expecting the search query to return all the first single letter characters of contacts ONLY, but when FGB is enabled
-    //      MySQL expect the columns present in GROUP BY, must be present in SELECT clause and that results into error, needless to have other columns.
-    //   2. When GROUP BY columns are present then disable FGB otherwise it demands to add ORDER BY columns in GROUP BY and eventually in SELECT
+    // Cases where we are disabling FGB (FULL_GROUP_BY_MODE):
+    //   1. When GROUP BY columns are present then disable FGB otherwise it demands to add ORDER BY columns in GROUP BY and eventually in SELECT
     //     clause. This will impact the search query output.
-    $disableFullGroupByMode = ($sortByChar || !empty($groupBy) || $groupContacts);
+    $disableFullGroupByMode = (!empty($groupBy) || $groupContacts);
 
     if ($disableFullGroupByMode) {
       CRM_Core_DAO::disableFullGroupByMode();

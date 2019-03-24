@@ -336,6 +336,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
     //flush component settings
     CRM_Core_Component::getEnabledComponents(TRUE);
 
+    $_REQUEST = $_GET = $_POST = [];
     error_reporting(E_ALL);
 
     $this->_sethtmlGlobals();
@@ -412,8 +413,7 @@ class CiviUnitTestCase extends PHPUnit_Extensions_Database_TestCase {
     if ($this->hookClass) {
       $this->hookClass->reset();
     }
-    $session = CRM_Core_Session::singleton();
-    $session->set('userID', NULL);
+    CRM_Core_Session::singleton()->reset(1);
 
     if ($this->tx) {
       $this->tx->rollback()->commit();
