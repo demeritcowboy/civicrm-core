@@ -1014,9 +1014,9 @@ class CRM_Contact_BAO_Query {
 
     foreach ($this->_returnProperties['location'] as $name => $elements) {
       $lCond = self::getPrimaryCondition($name);
+      $locationTypeId = is_numeric($name) ? NULL : array_search($name, $locationTypes);
 
       if (!$lCond) {
-        $locationTypeId = array_search($name, $locationTypes);
         if ($locationTypeId === FALSE) {
           continue;
         }
@@ -1028,7 +1028,6 @@ class CRM_Contact_BAO_Query {
       }
 
       $name = str_replace(' ', '_', $name);
-
       $tName = "$name-location_type";
       $ltName = "`$name-location_type`";
       $this->_select["{$tName}_id"] = "`$tName`.id as `{$tName}_id`";
@@ -1039,7 +1038,6 @@ class CRM_Contact_BAO_Query {
       $locationTypeName = $tName;
       $locationTypeJoin = array();
 
-      $addAddress = FALSE;
       $addWhereCount = 0;
       foreach ($elements as $elementFullName => $dontCare) {
         $index++;
@@ -1054,20 +1052,14 @@ class CRM_Contact_BAO_Query {
             $addressCustomFieldIds[$cfID][$name] = 1;
           }
         }
-        //add address table only once
+        // add address table - doesn't matter if we do it mutliple times - it's the same data
+        // @todo ditch the double processing of addressJoin
         if ((in_array($elementCmpName, self::$_locationSpecificFields) || !empty($addressCustomFieldIds))
-          && !$addAddress
           && !in_array($elementCmpName, array('email', 'phone', 'im', 'openid'))
         ) {
-          $tName = "$name-address";
-          $aName = "`$name-address`";
-          $this->_select["{$tName}_id"] = "`$tName`.id as `{$tName}_id`";
-          $this->_element["{$tName}_id"] = 1;
-          $addressJoin = "\nLEFT JOIN civicrm_address $aName ON ($aName.contact_id = contact_a.id AND $aName.$lCond)";
-          $this->_tables[$tName] = $addressJoin;
+          list($aName, $addressJoin) = $this->addAddressTable($name, $lCond);
           $locationTypeJoin[$tName] = " ( $aName.location_type_id = $ltName.id ) ";
           $processed[$aName] = 1;
-          $addAddress = TRUE;
         }
 
         $cond = $elementType = '';
@@ -6332,6 +6324,14 @@ AND   displayRelType.is_active = 1
       $direction = isset($orderByClauseParts[1]) ? $orderByClauseParts[1] : 'asc';
       $fieldSpec = $this->getMetadataForRealField($field);
 
+      // This is a hacky add-in for primary address joins. Feel free to iterate as it is unit tested.
+      // @todo much more cleanup on location handling in addHierarchical elements. Potentially
+      // add keys to $this->fields to represent the actual keys for locations.
+      if (empty($fieldSpec) && substr($field, 0, 2) === '1-') {
+        $fieldSpec = $this->getMetadataForField(substr($field, 2));
+        $this->addAddressTable('1-' . str_replace('civicrm_', '', $fieldSpec['table_name']), 'is_primary = 1');
+      }
+
       if ($this->_returnProperties === []) {
         if (!empty($fieldSpec['table_name']) && !isset($this->_tables[$fieldSpec['table_name']])) {
           $this->_tables[$fieldSpec['table_name']] = 1;
@@ -6339,53 +6339,46 @@ AND   displayRelType.is_active = 1
         }
 
       }
-      switch ($field) {
+      $cfID = CRM_Core_BAO_CustomField::getKeyID($field);
+      // add to cfIDs array if not present
+      if (!empty($cfID) && !array_key_exists($cfID, $this->_cfIDs)) {
+        $this->_cfIDs[$cfID] = array();
+        $this->_customQuery = new CRM_Core_BAO_CustomQuery($this->_cfIDs, TRUE, $this->_locationSpecificCustomFields);
+        $this->_customQuery->query();
+        $this->_select = array_merge($this->_select, $this->_customQuery->_select);
+        $this->_tables = array_merge($this->_tables, $this->_customQuery->_tables);
+      }
 
-        case 'placeholder-will-remove-next-pr-but-jenkins-will-not-accept-without-and-removing-switch-will-make-hard-to-read':
-          break;
-
-        default:
-          $cfID = CRM_Core_BAO_CustomField::getKeyID($field);
-          // add to cfIDs array if not present
-          if (!empty($cfID) && !array_key_exists($cfID, $this->_cfIDs)) {
-            $this->_cfIDs[$cfID] = array();
-            $this->_customQuery = new CRM_Core_BAO_CustomQuery($this->_cfIDs, TRUE, $this->_locationSpecificCustomFields);
-            $this->_customQuery->query();
-            $this->_select = array_merge($this->_select, $this->_customQuery->_select);
-            $this->_tables = array_merge($this->_tables, $this->_customQuery->_tables);
-          }
-
-          // By replacing the join to the option value table with the mysql construct
-          // ORDER BY field('contribution_status_id', 2,1,4)
-          // we can remove a join. In the case of the option value join it is
-          /// a join known to cause slow queries.
-          // @todo cover other pseudoconstant types. Limited to option group ones  & Foreign keys
-          // matching an id+name parrern in the
-          // first instance for scope reasons. They require slightly different handling as the column (label)
-          // is not declared for them.
-          // @todo so far only integer fields are being handled. If we add string fields we need to look at
-          // escaping.
-          $pseudoConstantMetadata = CRM_Utils_Array::value('pseudoconstant', $fieldSpec, FALSE);
-          if (!empty($pseudoConstantMetadata)
-          ) {
-            if (!empty($pseudoConstantMetadata['optionGroupName'])
-              || $this->isPseudoFieldAnFK($fieldSpec)
-            ) {
-              $sortedOptions = $fieldSpec['bao']::buildOptions($fieldSpec['name'], NULL, [
-                'orderColumn' => CRM_Utils_Array::value('labelColumn', $pseudoConstantMetadata, 'label'),
-              ]);
-              $fieldIDsInOrder = implode(',', array_keys($sortedOptions));
-              // Pretty sure this validation ALSO happens in the order clause & this can't be reached but...
-              // this might give some early warning.
-              CRM_Utils_Type::validate($fieldIDsInOrder, 'CommaSeparatedIntegers');
-              $order = str_replace("$field", "field({$fieldSpec['name']},$fieldIDsInOrder)", $order);
-            }
-            //CRM-12565 add "`" around $field if it is a pseudo constant
-            // This appears to be for 'special' fields like locations with appended numbers or hyphens .. maybe.
-            if (!empty($pseudoConstantMetadata['element']) && $pseudoConstantMetadata['element'] == $field) {
-              $order = str_replace($field, "`{$field}`", $order);
-            }
-          }
+      // By replacing the join to the option value table with the mysql construct
+      // ORDER BY field('contribution_status_id', 2,1,4)
+      // we can remove a join. In the case of the option value join it is
+      /// a join known to cause slow queries.
+      // @todo cover other pseudoconstant types. Limited to option group ones  & Foreign keys
+      // matching an id+name parrern in the
+      // first instance for scope reasons. They require slightly different handling as the column (label)
+      // is not declared for them.
+      // @todo so far only integer fields are being handled. If we add string fields we need to look at
+      // escaping.
+      $pseudoConstantMetadata = CRM_Utils_Array::value('pseudoconstant', $fieldSpec, FALSE);
+      if (!empty($pseudoConstantMetadata)
+      ) {
+        if (!empty($pseudoConstantMetadata['optionGroupName'])
+          || $this->isPseudoFieldAnFK($fieldSpec)
+        ) {
+          $sortedOptions = $fieldSpec['bao']::buildOptions($fieldSpec['name'], NULL, [
+            'orderColumn' => CRM_Utils_Array::value('labelColumn', $pseudoConstantMetadata, 'label'),
+          ]);
+          $fieldIDsInOrder = implode(',', array_keys($sortedOptions));
+          // Pretty sure this validation ALSO happens in the order clause & this can't be reached but...
+          // this might give some early warning.
+          CRM_Utils_Type::validate($fieldIDsInOrder, 'CommaSeparatedIntegers');
+          $order = str_replace("$field", "field({$fieldSpec['name']},$fieldIDsInOrder)", $order);
+        }
+        //CRM-12565 add "`" around $field if it is a pseudo constant
+        // This appears to be for 'special' fields like locations with appended numbers or hyphens .. maybe.
+        if (!empty($pseudoConstantMetadata['element']) && $pseudoConstantMetadata['element'] == $field) {
+          $order = str_replace($field, "`{$field}`", $order);
+        }
       }
     }
 
@@ -6953,6 +6946,30 @@ AND   displayRelType.is_active = 1
           CRM_Utils_Date::customFormat($dates[1]),
         ]) . ')';
     }
+  }
+
+  /**
+   * Add the address table into the query.
+   *
+   * @param string $tableKey
+   * @param string $joinCondition
+   *
+   * @return array
+   *   - alias name
+   *   - address join.
+   */
+  protected function addAddressTable($tableKey, $joinCondition) {
+    $tName = "$tableKey-address";
+    $aName = "`$tableKey-address`";
+    $this->_select["{$tName}_id"] = "`$tName`.id as `{$tName}_id`";
+    $this->_element["{$tName}_id"] = 1;
+    $addressJoin = "\nLEFT JOIN civicrm_address $aName ON ($aName.contact_id = contact_a.id AND $aName.$joinCondition)";
+    $this->_tables[$tName] = $addressJoin;
+
+    return [
+      $aName,
+      $addressJoin
+    ];
   }
 
 }

@@ -134,8 +134,9 @@ class CRM_Admin_Page_PaymentProcessor extends CRM_Core_Page_Basic {
     while ($dao->fetch()) {
       $paymentProcessor[$dao->id] = array();
       CRM_Core_DAO::storeValues($dao, $paymentProcessor[$dao->id]);
-      $paymentProcessor[$dao->id]['payment_processor_type'] = CRM_Core_DAO::getFieldValue('CRM_Financial_DAO_PaymentProcessorType',
-        $paymentProcessor[$dao->id]['payment_processor_type_id']);
+      $paymentProcessor[$dao->id]['payment_processor_type'] = CRM_Core_PseudoConstant::getLabel(
+        'CRM_Financial_DAO_PaymentProcessor', 'payment_processor_type_id', $dao->payment_processor_type_id
+      );
 
       // form all action links
       $action = array_sum(array_keys($this->links()));
@@ -157,7 +158,13 @@ class CRM_Admin_Page_PaymentProcessor extends CRM_Core_Page_Basic {
         $dao->id
       );
       $paymentProcessor[$dao->id]['financialAccount'] = CRM_Contribute_PseudoConstant::getRelationalFinancialAccount($dao->id, NULL, 'civicrm_payment_processor', 'financial_account_id.name');
-      $paymentProcessor[$dao->id]['test_id'] = CRM_Financial_BAO_PaymentProcessor::getTestProcessorId($dao->id);
+
+      try {
+        $paymentProcessor[$dao->id]['test_id'] = CRM_Financial_BAO_PaymentProcessor::getTestProcessorId($dao->id);
+      }
+      catch (CiviCRM_API3_Exception $e) {
+        CRM_Core_Session::setStatus(ts('No test processor entry exists for %1. Not having a test entry for each processor could cause problems', [$dao->name]));
+      }
     }
 
     $this->assign('rows', $paymentProcessor);

@@ -37,16 +37,7 @@
  * back in. It also uses a lot of functionality with the CRM API's, so any change
  * made here could potentially affect the API etc. Be careful, be aware, use unit tests.
  */
-class CRM_Contribute_Form_UpdateSubscription extends CRM_Core_Form {
-
-  /**
-   * The recurring contribution id, used when editing the recurring contribution.
-   *
-   * @var int
-   */
-  protected $contributionRecurID = NULL;
-
-  protected $_coid = NULL;
+class CRM_Contribute_Form_UpdateSubscription extends CRM_Contribute_Form_ContributionRecur {
 
   protected $_subscriptionDetails = NULL;
 
@@ -77,9 +68,9 @@ class CRM_Contribute_Form_UpdateSubscription extends CRM_Core_Form {
    */
   public function preProcess() {
 
+    parent::preProcess();
     $this->setAction(CRM_Core_Action::UPDATE);
 
-    $this->contributionRecurID = CRM_Utils_Request::retrieve('crid', 'Integer', $this, FALSE);
     if ($this->contributionRecurID) {
       try {
         $this->_paymentProcessorObj = CRM_Financial_BAO_PaymentProcessor::getPaymentProcessorForRecurringContribution($this->contributionRecurID);
@@ -93,7 +84,6 @@ class CRM_Contribute_Form_UpdateSubscription extends CRM_Core_Form {
       $this->_subscriptionDetails = CRM_Contribute_BAO_ContributionRecur::getSubscriptionDetails($this->contributionRecurID);
     }
 
-    $this->_coid = CRM_Utils_Request::retrieve('coid', 'Integer', $this, FALSE);
     if ($this->_coid) {
       $this->_paymentProcessor = CRM_Financial_BAO_PaymentProcessor::getProcessorForEntity($this->_coid, 'contribute', 'info');
       // @todo test & replace with $this->_paymentProcessorObj =  Civi\Payment\System::singleton()->getById($this->_paymentProcessor['id']);
@@ -380,13 +370,6 @@ class CRM_Contribute_Form_UpdateSubscription extends CRM_Core_Form {
       return CRM_Utils_System::redirect(CRM_Utils_System::url('civicrm/contribute/subscriptionstatus',
         "reset=1&task=update&result=1"));
     }
-  }
-
-  /**
-   * Explicitly declare the form context.
-   */
-  public function getDefaultContext() {
-    return 'create';
   }
 
 }
