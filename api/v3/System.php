@@ -230,8 +230,10 @@ function civicrm_api3_system_get($params) {
   $config = CRM_Core_Config::singleton();
   $returnValues = [
     [
-      'version' => CRM_Utils_System::version(), // deprecated in favor of civi.version
-      'uf' => CIVICRM_UF, // deprecated in favor of cms.type
+      // deprecated in favor of civi.version
+      'version' => CRM_Utils_System::version(),
+      // deprecated in favor of cms.type
+      'uf' => CIVICRM_UF,
       'php' => [
         'version' => phpversion(),
         'time' => time(),
@@ -254,11 +256,7 @@ function civicrm_api3_system_get($params) {
         'version' => CRM_Utils_System::version(),
         'dev' => (bool) CRM_Utils_System::isDevelopment(),
         'components' => array_keys(CRM_Core_Component::getEnabledComponents()),
-        'extensions' => preg_grep(
-          '/^uninstalled$/',
-          CRM_Extension_System::singleton()->getManager()->getStatuses(),
-          PREG_GREP_INVERT
-        ),
+        'extensions' => preg_grep('/^uninstalled$/', CRM_Extension_System::singleton()->getManager()->getStatuses(), PREG_GREP_INVERT),
         'multidomain' => CRM_Core_DAO::singleValueQuery('SELECT count(*) FROM civicrm_domain') > 1,
         'settings' => _civicrm_api3_system_get_redacted_settings(),
         'exampleUrl' => CRM_Utils_System::url('civicrm/example', NULL, TRUE, NULL, FALSE),

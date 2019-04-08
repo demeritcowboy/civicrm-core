@@ -25,7 +25,6 @@
  +--------------------------------------------------------------------+
  */
 
-use GuzzleHttp\Client;
 
 /**
  *
@@ -50,7 +49,7 @@ abstract class CRM_Utils_Check_Component {
    *   [CRM_Utils_Check_Message]
    */
   public function checkAll() {
-    $messages = array();
+    $messages = [];
     foreach (get_class_methods($this) as $method) {
       if ($method !== 'checkAll' && strpos($method, 'check') === 0) {
         $messages = array_merge($messages, $this->$method());
@@ -62,9 +61,10 @@ abstract class CRM_Utils_Check_Component {
   /**
    * Check if file exists on given URL.
    *
-   * @param $url
+   * @param string $url
+   * @param float $timeout
+   *
    * @return bool
-   * @throws \GuzzleHttp\Exception\GuzzleException
    */
   public function fileExists($url, $timeout = 0.50) {
     $fileExists = FALSE;
@@ -76,7 +76,8 @@ abstract class CRM_Utils_Check_Component {
       $fileExists = ($guzzleResponse->getStatusCode() == 200);
     }
     catch (Exception $e) {
-      echo $e->getMessage();
+      // At this stage we are not checking for variants of not being able to receive it.
+      // However, we might later enhance this to distinguish forbidden from a 500 error.
     }
     return $fileExists;
   }

@@ -38,9 +38,10 @@ class CRM_Utils_System_Soap extends CRM_Utils_System_Base {
 
   /**
    * UF container variables.
+   * @var string
    */
-  static $uf = NULL;
-  static $ufClass = NULL;
+  public static $uf = NULL;
+  public static $ufClass = NULL;
 
   /**
    * Given a permission string, check for access requirements
@@ -124,7 +125,7 @@ class CRM_Utils_System_Soap extends CRM_Utils_System_Base {
     throw new Exception("Method not implemented: getLoginURL");
   }
 
-  public function loadBootStrap($params = array(), $loadUser = TRUE, $throwError = TRUE, $realPath = NULL) {
+  public function loadBootStrap($params = [], $loadUser = TRUE, $throwError = TRUE, $realPath = NULL) {
     // It makes zero sense for this class to extend CRM_Utils_System_Base.
     throw new \RuntimeException("Not implemented");
   }
