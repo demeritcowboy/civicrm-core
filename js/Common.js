@@ -159,6 +159,8 @@ function submitOnce(obj, formId, procText) {
   // if named button clicked, change text
   if (obj.value != null) {
     cj('input[name=' + obj.name + ']').val(procText + " ...");
+    // Needed because calling .submit() below will always send the default button in the POST data. @see also CRM_Core_Controller::getButtonName().
+    cj('#_qf_button_override').val(obj.name);
   }
   cj(obj).closest('form').attr('data-warn-changes', 'false');
   if (document.getElementById) { // disable submit button for newer browsers
