@@ -93,6 +93,51 @@ class CRM_Case_BAO_CaseTest extends CiviUnitTestCase {
   }
 
   /**
+   * Create and return 10 cases with some different values.
+   * As to why I didn't make this use random numbers which might be more realistic, I don't think tests should have the possibility of passing on one run and fail on another. To test randomness a human should click on things to supplement unit tests.
+   * The second case in the returned list will be a closed case.
+   * The fourth case will have status Urgent.
+   *
+   * @return array CRM_Case_BAO_Case
+   */
+  private function createABunchOfCases($loggedInUser = NULL) {
+    if (empty($loggedInUser)) {
+      $loggedInUser = $this->createLoggedInUser();
+    }
+    $cases = [];
+    for ($i = 1; $i <= 10; $i++) {
+      $individual = $this->individualCreate();
+      $subject = "Case Subject $i";
+      // spread out some case start dates
+      $day_offset = ($i - 1) * 6;
+      $caseParams = [
+        'activity_subject' => $subject,
+        'client_id'        => $individual,
+        'case_type_id'     => 1,
+        // throw in one "Urgent"
+        'status_id'        => ($i == 4 ? 3 : 1),
+        'case_type'        => 'housing_support',
+        'subject'          => $subject,
+        'start_date'       => date("Y-m-d", strtotime("-{$day_offset} days")),
+        'start_date_time'  => date("YmdHis", strtotime("-{$day_offset} days")),
+        'medium_id'        => 2,
+        'activity_details' => '',
+      ];
+      $form = new CRM_Case_Form_Case();
+      $cases[] = $form->testSubmit($caseParams, "OpenCase", $loggedInUser, "standalone");
+    }
+
+    // Close the second case.
+    $actParams = [
+    ];
+
+    $form = new CRM_Case_Form_Activity_ChangeCaseStatus();
+    $form->postProcess($actParams);
+
+    return $cases;
+  }
+
+  /**
    * Create case role relationship between given contacts for provided case ID.
    *
    * @param $contactIdA
@@ -165,14 +210,37 @@ class CRM_Case_BAO_CaseTest extends CiviUnitTestCase {
     $this->assertEquals(array(1), $caseIds);
   }
 
-  /**
-   * FIXME: need to create an activity to run this test
-   * function testGetCases() {
-   *   $cases = CRM_Case_BAO_Case::getCases(TRUE, 3);
-   *   $this->assertEquals('Housing Support', $cases[1]['case_type']);
-   *   $this->assertEquals(1, $cases[1]['case_type_id']);
-   * }
+  function testGetCases() {
+    /**
+     * The stock setup for these tests does NOT add the standard timeline activities, so CRM_Case_BAO_Case::getCases() will always return an empty list.
+     * So we need to create our own case, and then note that even though there are technically two cases in the civicrm_case table, the result list here only has one case with case_id=2.
+     */
+    $individual = $this->individualCreate();
+    $caseObj = $this->createCase($individual);
+    $caseId = $caseObj->id;
+
+    // This is needed because of interesting thing discovered in PR 14086 and how civi seems to have an odd workaround function to deal with ONLY_FULL_GROUP_BY. Until a proper fix is put in.
+    CRM_Core_DAO::executeQuery("SET SQL_MODE='STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'");
+
+    /*
+      $r = CRM_Core_DAO::executeQuery("SELECT case_id,activity_id FROM civicrm_case_activity");
+      while ($r->fetch()) {
+          echo "case id: {$r->case_id}, {$r->activity_id}\n";
+      }
    */
+    $loggedInUser = $this->createLoggedInUser();
+    $cases = CRM_Case_BAO_Case::getCases(TRUE);
+//print_r($cases);
+    $this->assertEquals('Housing Support', $cases[2]['case_type']);
+    $this->assertEquals('Ongoing', $cases[2]['case_status']);
+
+    // Now create more cases.
+    $caseList = $this->createABunchOfCases($loggedInUser);
+
+    // Check some more things now.
+    $cases = CRM_Case_BAO_Case::getCases(TRUE);
+  }
+
   public function testGetCasesSummary() {
     $cases = CRM_Case_BAO_Case::getCasesSummary(TRUE, 3);
     $this->assertEquals(1, $cases['rows']['Housing Support']['Ongoing']['count']);
