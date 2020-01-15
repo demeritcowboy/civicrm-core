@@ -369,6 +369,133 @@ class CRM_Case_BAO_CaseTest extends CiviUnitTestCase {
   }
 
   /**
+   * Test activity revisions are working when done via the form.
+   */
+  public function testActivityRevisions() {
+    // get old value of revisions setting so we can replace later
+    $oldRevisionSetting = Civi::settings()->get('civicaseActivityRevisions');
+    // Turn it on. It's stored as a string, I guess because it comes from form input.
+    Civi::settings()->set('civicaseActivityRevisions', '1');
+
+    $loggedInUser = $this->createLoggedInUser();
+    $client_id = $this->individualCreate();
+    $caseObj = $this->createCase($client_id, $loggedInUser);
+    $case_id = $caseObj->id;
+
+    // Get the value for the activity type id we need to create
+    $atype = CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_Activity', 'activity_type_id', 'Follow up');
+
+    // Create an activity we're going to update
+    $t = time();
+    $now_date = date('Y-m-d H:i:s', $t);
+    $activityParams = [
+      'case_id' => $case_id,
+      'activity_type_id' => $atype,
+      'subject' => 'Test follow up',
+      'activity_date_time' => $now_date,
+      'source_contact_id' => $loggedInUser,
+      'target_id' => $client_id,
+    ];
+    $activity = $this->callAPISuccess('Activity', 'create', $activityParams);
+    $activity_id = $activity['id'];
+
+    // Get the activity status option value for "Completed"
+    $completed_status = $this->callAPISuccess('OptionValue', 'getValue', [
+      'return' => 'value',
+      'option_group_id' => 'activity_status',
+      'name' => 'Completed',
+    ]);
+
+    // HTTP vars needed because that's how the form determines stuff
+    $oldMETHOD = empty($_SERVER['REQUEST_METHOD']) ? NULL : $_SERVER['REQUEST_METHOD'];
+    $oldGET = empty($_GET) ? [] : $_GET;
+    $oldREQUEST = empty($_REQUEST) ? [] : $_REQUEST;
+    $_SERVER['REQUEST_METHOD'] = 'GET';
+    $_GET['caseid'] = $case_id;
+    $_REQUEST['caseid'] = $case_id;
+    $_GET['cid'] = $client_id;
+    $_REQUEST['cid'] = $client_id;
+    $_GET['action'] = 'update';
+    $_GET['id'] = $activity_id;
+    $_REQUEST['id'] = $activity_id;
+    $_REQUEST['action'] = 'update';
+    $_GET['reset'] = 1;
+    $_REQUEST['reset'] = 1;
+    $_GET['q'] = 'civicrm/case/activity';
+
+    $form = new CRM_Case_Form_Activity();
+    $form->controller = new CRM_Core_Controller_Simple('CRM_Case_Form_Activity', 'Case Activity');
+    $form->_activityTypeId  = $atype;
+    $form->_activityTypeName = 'Follow up';
+    // There is no corresponding file for followup, at least not in core.
+    $form->_activityTypeFile = '';
+
+    $form->preProcess();
+    $form->buildQuickForm();
+    $form->setDefaultValues();
+
+    // Now submit the form.
+
+    $actParams = [
+      'is_unittest' => TRUE,
+      'activity_date_time' => $now_date,
+      'target_contact_id' => $client_id,
+      'source_contact_id' => $loggedInUser,
+      'subject' => 'Test follow up edited',
+      'duration' => 30,
+      'details' => '<p>Details</p>',
+      'status_id' => $completed_status,
+      // This line is very important. It's present in the UI even when no custom fields are defined for the activity, and it's triggering the problem code in postprocess.
+      'hidden_custom' => 1,
+    ];
+
+    $form->postProcess($actParams);
+
+    // Ok now let's check some things
+
+    $caseData = $this->callAPISuccess('Case', 'getsingle', [
+      'id' => $case_id,
+    ]);
+
+    // now get the latest activity and check some things for it
+
+    $editedActivityId = max($caseData['activities']);
+    $this->assertNotEmpty($editedActivityId);
+    // Should have a different id from the first activity
+    $this->assertNotEquals($activity_id, $editedActivityId);
+
+    $editedActivity = $this->callAPISuccess('Activity', 'getsingle', [
+      'id' => $editedActivityId,
+    ]);
+
+    // original_id should match the first activity
+    $this->assertEquals($activity_id, $editedActivity['original_id']);
+    $this->assertEquals(1, $editedActivity['is_current_revision']);
+    $this->assertEquals(0, $editedActivity['is_deleted']);
+
+    // Check the old activity got updated so it's no longer current revision
+    $activity = $this->callAPISuccess('Activity', 'getsingle', [
+      'id' => $activity_id,
+    ]);
+    // Hmm why is this var non-existent?
+    //$this->assertEquals($activity_id, $activity['original_id']);
+    $this->assertEquals(0, $editedActivity['is_current_revision']);
+    $this->assertEquals(0, $editedActivity['is_deleted']);
+
+    // Now replace old values
+    if (is_null($oldMETHOD)) {
+      unset($_SERVER['REQUEST_METHOD']);
+    }
+    else {
+      $_SERVER['REQUEST_METHOD'] = $oldMETHOD;
+    }
+    $_GET = $oldGET;
+    $_REQUEST = $oldREQUEST;
+
+    Civi::settings()->set('civicaseActivityRevisions', $oldRevisionSetting);
+  }
+
+  /**
    * Test getGlobalContacts
    */
   public function testGetGlobalContacts() {

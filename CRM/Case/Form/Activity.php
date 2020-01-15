@@ -53,6 +53,11 @@ class CRM_Case_Form_Activity extends CRM_Activity_Form_Activity {
    * Build the form object.
    */
   public function preProcess() {
+CRM_Core_Error::debug_log_message("preprocess get: " . print_r($_GET, true));
+CRM_Core_Error::debug_log_message("preprocess post: " . print_r($_POST, true));
+CRM_Core_Error::debug_log_message("preprocess request: " . print_r($_REQUEST, true));
+CRM_Core_Error::debug_log_message("preprocess this: " . print_r($this, true));
+
     $caseIds = CRM_Utils_Request::retrieve('caseid', 'CommaSeparatedIntegers', $this);
     $this->_caseId = $caseIds ? explode(',', $caseIds) : [];
     $this->_context = CRM_Utils_Request::retrieve('context', 'Alphanumeric', $this);
@@ -407,6 +412,8 @@ class CRM_Case_Form_Activity extends CRM_Activity_Form_Activity {
     if (empty($params['is_unittest'])) {
       $params = $this->controller->exportValues($this->_name);
     }
+CRM_Core_Error::debug_log_message("postprocess: " . print_r($params, true));
+CRM_Core_Error::debug_log_message("postprocess: " . print_r($this, true));
 
     //set parent id if its edit mode
     if ($parentId = CRM_Utils_Array::value('parent_id', $this->_defaults)) {
@@ -428,7 +435,14 @@ class CRM_Case_Form_Activity extends CRM_Activity_Form_Activity {
       if ($this->_activityId) {
         // retrieve and include the custom data of old Activity
         $oldActivity = civicrm_api3('Activity', 'getsingle', ['id' => $this->_activityId]);
+        $oldParamsId = $params['id'] ?? NULL;
+        // THIS LINE IS THE PROBLEM, because it ends up setting 'id' to the old activity id even when it's not supposed to be set. If we're going to switch to api can this all be removed? It looks like that (indirectly via Activity_Page_AJAX::_convertToCaseActivity) handles what this was added to address. We just need to format any new custom data which it does at line 465 below.
         $params = array_merge($oldActivity, $params);
+        if ($oldParamsId === NULL) {
+          unset($params['id']);
+        } else {
+          $params['id'] = $oldParamsId;
+        }
 
         // unset custom fields-id from params since we want custom
         // fields to be saved for new activity.
