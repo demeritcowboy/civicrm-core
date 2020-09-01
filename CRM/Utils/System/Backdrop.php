@@ -292,7 +292,8 @@ class CRM_Utils_System_Backdrop extends CRM_Utils_System_DrupalBase {
     $config = CRM_Core_Config::singleton();
 
     $ufDSN = CRM_Utils_SQL::autoSwitchDSN($config->userFrameworkDSN);
-    $dbBackdrop = DB::connect($ufDSN);
+    $db_options = CRM_Utils_SQL::isSSLDSN($ufDSN) ? ['ssl' => TRUE] : [];
+    $dbBackdrop = DB::connect($ufDSN, $db_options);
     if (DB::isError($dbBackdrop)) {
       throw new CRM_Core_Exception("Cannot connect to Backdrop database via $ufDSN, " . $dbBackdrop->getMessage());
     }
