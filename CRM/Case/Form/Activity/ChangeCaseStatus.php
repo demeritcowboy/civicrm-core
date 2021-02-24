@@ -154,37 +154,9 @@ class CRM_Case_Form_Activity_ChangeCaseStatus {
     // Set case end_date if we're closing the case. Clear end_date if we're (re)opening it.
     if (($groupingValues[$params['case_status_id']] ?? NULL) == 'Closed' && !empty($params['activity_date_time'])) {
       $params['end_date'] = CRM_Utils_Date::isoToMysql($params['activity_date_time']);
-
-      // End case-specific relationships (roles)
-      foreach ($params['target_contact_id'] as $cid) {
-        $rels = CRM_Case_BAO_Case::getCaseRoles($cid, $params['case_id']);
-        foreach ($rels as $relId => $relData) {
-          $relationshipParams = [
-            'id' => $relId,
-            'end_date' => $params['end_date'],
-          ];
-          // @todo we can't switch directly to api because there is too much business logic and it breaks closing cases with organisations as client relationships
-          //civicrm_api3('Relationship', 'create', $relationshipParams);
-          CRM_Contact_BAO_Relationship::add($relationshipParams);
-        }
-      }
     }
     elseif (($groupingValues[$params['case_status_id']] ?? NULL) == 'Opened') {
       $params['end_date'] = 'null';
-
-      // Reopen case-specific relationships (roles)
-      foreach ($params['target_contact_id'] as $cid) {
-        $rels = CRM_Case_BAO_Case::getCaseRoles($cid, $params['case_id'], NULL, FALSE);
-        foreach ($rels as $relId => $relData) {
-          $relationshipParams = [
-            'id' => $relId,
-            'end_date' => 'null',
-          ];
-          // @todo we can't switch directly to api because there is too much business logic and it breaks closing cases with organisations as client relationships
-          //civicrm_api3('Relationship', 'create', $relationshipParams);
-          CRM_Contact_BAO_Relationship::add($relationshipParams);
-        }
-      }
     }
     $params['status_id'] = CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_Activity', 'activity_status_id', 'Completed');
     $activity->status_id = $params['status_id'];

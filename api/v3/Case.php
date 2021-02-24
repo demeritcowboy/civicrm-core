@@ -157,7 +157,6 @@ function _civicrm_api3_case_create_xmlProcessor($params, $caseBAO) {
     'medium_id' => $params['medium_id'] ?? NULL,
     'details' => $params['details'] ?? NULL,
     'custom' => [],
-    'relationship_end_date' => $params['end_date'] ?? NULL,
   ];
 
   // Do it! :-D

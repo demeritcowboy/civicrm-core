@@ -173,18 +173,19 @@ class api_v3_CaseTest extends CiviCaseTestCase {
     $this->assertEquals($result['values'][$id]['subject'], $params['subject']);
     $this->assertEquals($result['values'][$id]['end_date'], date('Y-m-d'));
 
-    //Check all relationship end dates are set to case end date.
+    //Check all relationship end dates are null/not present.
     $relationships = $this->callAPISuccess('Relationship', 'get', [
       'sequential' => 1,
       'case_id' => $id,
     ]);
     foreach ($relationships['values'] as $values) {
-      $this->assertEquals($values['end_date'], date('Y-m-d'));
+      $this->assertArrayNotHasKey('end_date', $values);
     }
 
-    //Verify there are no active relationships.
+    // Verify getCaseRoles() is able to return these both with and without the
+    // unfortunately-named $activeOnly parameter.
     $activeCaseRelationships = CRM_Case_BAO_Case::getCaseRoles($result['values'][$id]['client_id'][1], $id);
-    $this->assertEquals(count($activeCaseRelationships), 0, "Checking for empty array");
+    $this->assertEquals(count($activeCaseRelationships), 1);
 
     //Check if getCaseRoles() is able to return inactive relationships.
     $caseRelationships = CRM_Case_BAO_Case::getCaseRoles($result['values'][$id]['client_id'][1], $id, NULL, FALSE);
