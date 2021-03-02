@@ -63,6 +63,9 @@
        * @param $event
        */
       $scope.setSort = function(col, $event) {
+        if (col.type !== 'field') {
+          return;
+        }
         var dir = $scope.getSort(col) === 'fa-sort-asc' ? 'DESC' : 'ASC';
         if (!$event.shiftKey || !ctrl.sort) {
           ctrl.sort = [];
@@ -76,9 +79,8 @@
         ctrl.getResults();
       };
 
-      $scope.formatResult = function(row, col) {
-        var value = row[col.key];
-        return searchDisplayUtils.formatSearchValue(row, col, value);
+      this.formatFieldValue = function(rowData, col) {
+        return searchDisplayUtils.formatDisplayValue(rowData, col.key, ctrl.settings.columns);
       };
 
       $scope.selectAllRows = function() {
