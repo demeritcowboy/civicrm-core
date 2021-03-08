@@ -884,7 +884,17 @@ LIMIT  1
       CRM_Contact_BAO_Relationship::CURRENT,
       0, 0, 0, NULL, NULL, FALSE
     );
-    foreach ($relClient as $r) {
+    foreach ($relClient as $rindex => $r) {
+      // The getRelationship() above does take a $params argument that can
+      // limit the query but it's not very generic and wouldn't understand it
+      // if we tried to use it to limit case_id, so if there's relationships
+      // included in the result that are case roles for other cases, exclude
+      // them now.
+      if (!empty($r['case_id']) && $r['case_id'] !== $caseID) {
+        unset($relClient[$rindex]);
+        continue;
+      }
+
       if ($isRedact) {
         if (!array_key_exists($r['name'], $report->_redactionStringRules)) {
           $report->_redactionStringRules = CRM_Utils_Array::crmArrayMerge($report->_redactionStringRules,
