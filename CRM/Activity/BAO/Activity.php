@@ -2667,7 +2667,9 @@ INNER JOIN  civicrm_option_group grp ON (grp.id = option_group_id AND grp.name =
    *   sure why for the purposes of links you would ever want a case activity
    *   to link to the regular form, so I think this can be removed, but am
    *   leaving it as-is for now.
-   * @return string HTML string
+   * @param bool $returnString Return links as a string ready for output or as
+   *   an array.
+   * @return string|array HTML string or array
    */
   public static function getActionLinks(
     array $values,
@@ -2676,7 +2678,8 @@ INNER JOIN  civicrm_option_group grp ON (grp.id = option_group_id AND grp.name =
     bool $isViewOnly,
     ?string $context,
     ?int $mask,
-    bool $dontBreakCaseActivities = TRUE): string {
+    bool $dontBreakCaseActivities = TRUE,
+    bool $returnString = TRUE) {
 
     $linksToReturn = '';
     // If this is a case activity, then we hand off to Case's actionLinks instead.
@@ -2717,15 +2720,26 @@ INNER JOIN  civicrm_option_group grp ON (grp.id = option_group_id AND grp.name =
         $caseActivityPermissions |= CRM_Core_Action::UPDATE;
       }
 
-      $linksToReturn = CRM_Core_Action::formLink($actionLinks,
-        $caseActivityPermissions,
-        $caseLinkValues,
-        ts('more'),
-        FALSE,
-        'activity.tab.row',
-        'Activity',
-        $values['activity_id']
-      );
+      if ($returnString) {
+        $linksToReturn = CRM_Core_Action::formLink($actionLinks,
+          $caseActivityPermissions,
+          $caseLinkValues,
+          ts('more'),
+          FALSE,
+          'activity.tab.row',
+          'Activity',
+          $values['activity_id']
+        );
+      }
+      else {
+        $linksToReturn = CRM_Core_Action::filterLinks($actionLinks,
+          $caseActivityPermissions,
+          $caseLinkValues,
+          'activity.tab.row',
+          'Activity',
+          $values['activity_id']
+        );
+      }
     }
     else {
       // Non-case activity
@@ -2737,20 +2751,36 @@ INNER JOIN  civicrm_option_group grp ON (grp.id = option_group_id AND grp.name =
       );
       $actionMask = array_sum(array_keys($actionLinks)) & $mask;
 
-      $linksToReturn = CRM_Core_Action::formLink($actionLinks,
-        $actionMask,
-        [
-          'id' => $values['activity_id'],
-          'cid' => $contactId,
-          'cxt' => $context,
-          'caseid' => NULL,
-        ],
-        ts('more'),
-        FALSE,
-        'activity.tab.row',
-        'Activity',
-        $values['activity_id']
-      );
+      if ($returnString) {
+        $linksToReturn = CRM_Core_Action::formLink($actionLinks,
+          $actionMask,
+          [
+            'id' => $values['activity_id'],
+            'cid' => $contactId,
+            'cxt' => $context,
+            'caseid' => NULL,
+          ],
+          ts('more'),
+          FALSE,
+          'activity.tab.row',
+          'Activity',
+          $values['activity_id']
+        );
+      }
+      else {
+        $linksToReturn = CRM_Core_Action::filterLinks($actionLinks,
+          $actionMask,
+          [
+            'id' => $values['activity_id'],
+            'cid' => $contactId,
+            'cxt' => $context,
+            'caseid' => NULL,
+          ],
+          'activity.tab.row',
+          'Activity',
+          $values['activity_id']
+        );
+      }
     }
     return $linksToReturn;
   }
@@ -2891,6 +2921,122 @@ INNER JOIN  civicrm_option_group grp ON (grp.id = option_group_id AND grp.name =
       ['key' => 'activity_type_id', 'value' => ts('Activity Type')],
       ['key' => 'status_id', 'value' => ts('Activity Status')],
     ];
+  }
+
+  /**
+   * Rewrite the url if it's a case activity or doesn't have all the ids.
+   *
+   * @param \Civi\Core\Event\GenericHookEvent $e
+   */
+  public static function rewriteUrl(\Civi\Core\Event\GenericHookEvent $e) {
+    if ($e->path == 'civicrm/activity') {
+
+      $activity_id = CRM_Utils_Request::retrieve('id', 'Positive');
+      if (empty($activity_id)) {
+        // no point doing anything if this is a create action or it's missing
+        return;
+      }
+
+      $activity_values = \Civi\Api4\Activity::get(TRUE)
+        ->addSelect('id', 'activity_type_id', 'source_record_id', 'activity_contact.contact_id', 'case_activity.case_id')
+        ->setJoin([
+          ['ActivityContact AS activity_contact', 'LEFT', NULL, ['activity_contact.record_type_id', '=', CRM_Core_PseudoConstant::getKey('CRM_Activity_BAO_ActivityContact', 'record_type_id', 'Activity Source')]],
+          ['CaseActivity AS case_activity', 'LEFT'],
+        ])
+        // remove duplicate targets and caseIds - we just need an arbitrary one
+        ->setGroupBy(['id'])
+        ->addWhere('id', '=', $activity_id)
+        ->setLimit(1)
+        ->execute()->first();
+
+        /*
+        ->addSelect('id', 'activity_type_id', 'source_record_id')
+        ->addChain('targets', \Civi\Api4\ActivityContact::get(FALSE)
+          ->setLimit(1)
+          ->addWhere('activity_id', '=', '$id')
+          ->addWhere('record_type_id:name', '=', 'Activity Targets')
+        )
+        // Need false here because it seems to require Administer CiviCRM and
+        // we're already checking the activity's permission itself.
+        ->addChain('cases', \Civi\Api4\CaseActivity::get(FALSE)
+          ->setLimit(1)
+          ->addWhere('activity_id', '=', '$id')
+        )
+        ->addWhere('id', '=', $activity_id)
+        ->setLimit(1)
+        ->execute()->first();
+         */
+
+      // reformat for getActionLinks()
+      $activity_values['activity_id'] = $activity_id;
+      $activity_values['case_id'] = (array) $activity_values['case_activity.case_id'];
+      $target_contact_id = $activity_values['activity_contact.contact_id'];
+      unset($activity_values['case_activity.case_id']);
+      unset($activity_values['activity_contact.contact_id']);
+/*      $target_contact_id = $activity_values['targets'][0]['contact_id'] ?? NULL;
+      $activity_values['case_id'] = (array) ($activity_values['cases'][0]['case_id'] ?? NULL);
+      unset($activity_values['targets']);
+      unset($activity_values['cases']);
+ */
+
+      // @todo: mailingId. It gets calculated in a complex way and then gets
+      // used as a boolean to determine whether to add a BROWSE link for the mailing report, which doesn't use mailingId and only uses source_record_id.
+      $activity_values['mailingId'] = NULL;
+
+      // misc items it needs
+      $viewOnlyCaseActivityTypeIDs = array_flip(CRM_Activity_BAO_Activity::getViewOnlyActivityTypeIDs());
+      $page = new CRM_Core_Page();
+      CRM_Contact_Page_View::checkUserPermission($page, $target_contact_id);
+      $permissions = [$page->_permission];
+      if (CRM_Core_Permission::check('delete activities')) {
+        $permissions[] = CRM_Core_Permission::DELETE;
+      }
+      $mask = CRM_Core_Action::mask($permissions);
+
+      // We really just want the $action as the mask, but if it's not in $mask
+      // then we need to abort.
+      $action = CRM_Utils_Request::retrieve('action', 'String');
+      if ($mask & $action) {
+        $mask = $action;
+      }
+      else {
+        // @todo not really sure what to do here
+        // throw new CRM_Core_Exception(ts('Unknown action or access denied'));
+        return;
+      }
+
+      // get the links
+      $actionLinks = self::getActionLinks(
+        $activity_values,
+        $activity_id,
+        $target_contact_id,
+        isset($viewOnlyCaseActivityTypeIDs[$activity_values['activity_type_id']]),
+        NULL,
+        $mask,
+        TRUE,
+        FALSE
+      );
+
+      // cases don't use mask and do their own thing, so apply action/mask now
+      $actionLinks = array_filter($actionLinks, function($v) use ($action) {
+        return (bool) ($v['bit'] & $action);
+      });
+      // There should be one or zero at this point, so we only loop once.
+      foreach ($actionLinks as $link) {
+        $e->item = CRM_Core_Menu::get($link['url']);
+
+        // avoid confusion for e.g. case activity view and possibly others
+        unset($_GET['id']);
+        unset($_REQUEST['id']);
+
+        parse_str($link['qs'], $url_params);
+        foreach ($url_params as $p => $v) {
+          $_GET[$p] = $_REQUEST[$p] = $v;
+        }
+
+        break;
+      }
+    }
   }
 
 }
