@@ -48,6 +48,19 @@ class CRM_Logging_ReportSummary extends CRM_Report_Form {
     // used for redirect back to contact summary
     $this->cid = CRM_Utils_Request::retrieve('cid', 'Integer');
 
+    $this->setLogTables();
+
+    // Allow log tables to be extended via report hooks.
+    CRM_Report_BAO_Hook::singleton()->alterLogTables($this, $this->_logTables);
+
+    // I think this comes at the end instead of at the beginning as normal
+    // because the parent calls a hook, and if we do it at the beginning it's
+    // too soon. The problem is it means subclasses can't override their
+    // parents properly.
+    parent::__construct();
+  }
+
+  protected function setLogTables(): void {
     $this->_logTables = [
       'log_civicrm_contact' => [
         'fk' => 'id',
@@ -166,11 +179,6 @@ class CRM_Logging_ReportSummary extends CRM_Report_Form {
         'log_type' => 'Contact',
       ];
     }
-
-    // Allow log tables to be extended via report hooks.
-    CRM_Report_BAO_Hook::singleton()->alterLogTables($this, $this->_logTables);
-
-    parent::__construct();
   }
 
   public function groupBy() {
