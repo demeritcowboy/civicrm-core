@@ -215,11 +215,21 @@ class CRM_Logging_ReportDetail extends CRM_Report_Form {
           $to = implode(', ', array_filter($tos));
         }
 
+        $tableDAOClass = CRM_Core_DAO_AllCoreTables::getClassForTable($table);
+        if (!empty($tableDAOClass)) {
+          $tableDAOFields = (new $tableDAOClass())->fields();
+        }
         if (isset($values[$field][$from])) {
           $from = $values[$field][$from];
         }
+        elseif (!empty($from) && isset($tableDAOFields[$field]['FKClassName'])) {
+          $from = $this->convertForeignKeyValuesToLabels($tableDAOFields[$field]['FKClassName'], $field, $from);
+        }
         if (isset($values[$field][$to])) {
           $to = $values[$field][$to];
+        }
+        elseif (!empty($to) && isset($tableDAOFields[$field]['FKClassName'])) {
+          $to = $this->convertForeignKeyValuesToLabels($tableDAOFields[$field]['FKClassName'], $field, $to);
         }
         if (isset($titles[$field])) {
           $field = $titles[$field];
@@ -447,6 +457,25 @@ class CRM_Logging_ReportDetail extends CRM_Report_Form {
       $this->dblimit = $rowCount;
       $this->dboffset = $offset;
     }
+  }
+
+  /**
+   * Given a key value that we know is a foreign key to another table, return
+   * what the DAO thinks is the "label" for the foreign entity.
+   * If the DAO doesn't have such a thing, just echo back what we were given.
+   *
+   * @param string $fkClassName
+   * @param string $field
+   * @param int $keyval
+   * @return string
+   */
+  private function convertForeignKeyValuesToLabels(string $fkClassName, string $field, int $keyval): string {
+    if (property_exists($fkClassName, '_labelField')) {
+      $labelValue = CRM_Core_DAO::getFieldValue($fkClassName, $keyval, $fkClassName::$_labelField);
+      // maybe not translation-friendly, but keeping the same as what it does for field labels above
+      return "(id: {$keyval}) {$labelValue}";
+    }
+    return (string) $keyval;
   }
 
 }
