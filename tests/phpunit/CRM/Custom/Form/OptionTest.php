@@ -52,6 +52,7 @@ class CRM_Custom_Form_OptionTest extends CiviUnitTestCase {
       'optionId' => $optionValue['id'],
       'fieldId' => $fid,
     ];
+    $form->assign('formTpl', NULL);
     $form->mainProcess();
 
     $newOptionValue = $this->callAPISuccess('OptionValue', 'get', [
