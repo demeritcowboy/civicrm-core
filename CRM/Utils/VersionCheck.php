@@ -136,8 +136,8 @@ class CRM_Utils_VersionCheck {
     // Calorie-free pingback for alphas
     $this->stats = ['version' => $this->localVersion];
 
-    // Non-alpha versions get the full treatment
-    if ($this->localVersion && !strpos($this->localVersion, 'alpha')) {
+    // Non-alpha versions get the full treatment, and also during unit tests.
+    if (($this->localVersion && (strpos($this->localVersion, 'alpha') === FALSE)) || defined('CIVICRM_TEST')) {
       $this->stats += [
         'hash' => md5($siteKey . $config->userFrameworkBaseURL),
         'uf' => $config->userFramework,
