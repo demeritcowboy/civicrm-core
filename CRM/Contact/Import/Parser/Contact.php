@@ -1510,6 +1510,17 @@ class CRM_Contact_Import_Parser_Contact extends CRM_Contact_Import_Parser {
    *   A string containing all the error-fields.
    */
   public function isErrorInCoreData($params, &$errorMessage) {
+    if (!isset(\Civi::$statics[__CLASS__][__FUNCTION__]['state_province'])) {
+      foreach (CRM_Core_PseudoConstant::stateProvince() as $v) {
+        \Civi::$statics[__CLASS__][__FUNCTION__]['state_province'][strtolower(trim($v, "."))] = 1;
+      }
+    }
+    if (!isset(\Civi::$statics[__CLASS__][__FUNCTION__]['state_province_abbreviation'])) {
+      foreach (CRM_Core_PseudoConstant::stateProvinceAbbreviation() as $v) {
+        \Civi::$statics[__CLASS__][__FUNCTION__]['state_province_abbreviation'][strtolower(trim($v, "."))] = 1;
+      }
+    }
+
     foreach ($params as $key => $value) {
       if ($value) {
         $session = CRM_Core_Session::singleton();
@@ -1584,8 +1595,9 @@ class CRM_Contact_Import_Parser_Contact extends CRM_Contact_Import_Parser {
             if (!empty($value)) {
               foreach ($value as $stateValue) {
                 if ($stateValue['state_province']) {
-                  if (self::in_value($stateValue['state_province'], CRM_Core_PseudoConstant::stateProvinceAbbreviation()) ||
-                    self::in_value($stateValue['state_province'], CRM_Core_PseudoConstant::stateProvince())
+                  $trim_state_province = strtolower(trim($stateValue['state_province'], '.'));
+                  if (isset(\Civi::$statics[__CLASS__][__FUNCTION__]['state_province_abbreviation'][$trim_state_province]) ||
+                    isset(\Civi::$statics[__CLASS__][__FUNCTION__]['state_province'][$trim_state_province])
                   ) {
                     continue;
                   }
