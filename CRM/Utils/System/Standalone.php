@@ -23,6 +23,52 @@ class CRM_Utils_System_Standalone extends CRM_Utils_System_Base {
   /**
    * @inheritdoc
    */
+  public function initialize() {
+    parent::initialize();
+    $this->registerPathVars();
+  }
+
+  /**
+   * Specify the default computation for various paths/URLs.
+   */
+  protected function registerPathVars():void {
+    // Do nothing for now if being called from 'cv'
+    // @todo What about the command-line installer?
+    if (empty($_SERVER['SCRIPT_FILENAME']) || $_SERVER['SCRIPT_FILENAME'] == '/index.php') {
+      return;
+    }
+
+    Civi::paths()->register('civicrm.root', function () {
+      $webroot = dirname($_SERVER['SCRIPT_FILENAME']);
+      $root = dirname($webroot);
+      return [
+        'path' => implode(DIRECTORY_SEPARATOR, [$root, 'vendor', 'civicrm', 'civicrm-core']),
+        'url' => CIVICRM_UF_BASEURL . '/assets/civicrm/core',
+      ];
+    });
+    Civi::paths()->register('civicrm.files', function () {
+      $webroot = dirname($_SERVER['SCRIPT_FILENAME']);
+      $root = dirname($webroot);
+      return [
+        'path' => implode(DIRECTORY_SEPARATOR, [$root, 'web', 'upload']),
+        'url' => CIVICRM_UF_BASEURL . '/upload/',
+      ];
+    });
+    // For now, some places still assume they exist
+    $cmsRoot = function() {
+      $webroot = dirname($_SERVER['SCRIPT_FILENAME']);
+      return [
+        'path' => $webroot,
+        'url' => CIVICRM_UF_BASEURL . '/',
+      ];
+    };
+    Civi::paths()->register('cms', $cmsRoot);
+    Civi::paths()->register('cms.root', $cmsRoot);
+  }
+
+  /**
+   * @inheritdoc
+   */
   public function getDefaultFileStorage() {
     return [
       'url' => 'upload',

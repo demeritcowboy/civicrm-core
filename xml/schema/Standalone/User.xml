@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+
+<table>
+  <base>CRM/Standalone</base>
+  <class>User</class>
+  <name>civicrm_user</name>
+  <comment>User storage.</comment>
+  <add>5.52</add>
+  <log>true</log>
+  <field>
+    <name>id</name>
+    <type>int unsigned</type>
+    <title>User ID</title>
+    <required>true</required>
+    <comment>User ID</comment>
+    <html>
+      <type>Number</type>
+    </html>
+    <add>5.52</add>
+  </field>
+  <primaryKey>
+    <name>id</name>
+    <autoincrement>true</autoincrement>
+  </primaryKey>
+  <field>
+    <name>auth_provider</name>
+    <type>varchar</type>
+    <title>Authentication Provider</title>
+    <length>255</length>
+    <comment>e.g. built-in using this table or 3rd party</comment>
+    <add>5.52</add>
+  </field>
+  <field>
+    <name>username</name>
+    <type>varchar</type>
+    <title>Username</title>
+    <length>255</length>
+    <comment>Username</comment>
+    <add>5.52</add>
+  </field>
+  <field>
+    <name>password</name>
+    <type>varchar</type>
+    <title>Password</title>
+    <length>255</length>
+    <comment>Password</comment>
+    <add>5.52</add>
+  </field>
+  <field>
+    <name>email</name>
+    <type>varchar</type>
+    <title>Email</title>
+    <length>255</length>
+    <comment>Email. It might be better not to have this here but it is used by UF sync.</comment>
+    <add>5.52</add>
+  </field>
+</table>
