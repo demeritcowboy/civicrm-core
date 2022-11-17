@@ -78,4 +78,17 @@ class EventCheck extends Assert {
   public function tearDown() {
   }
 
+  /**
+   * Transitional polyfill for eliminating most of the warning "W"'s that appear
+   * when running with phpunit 9.x, so that can run tests with either 8 or 9.
+   */
+  public function assertRegularExpression(string $pattern, string $string, string $message = '') {
+    if (method_exists($this, 'assertMatchesRegularExpression')) {
+      $this->assertMatchesRegularExpression($pattern, $string, $message);
+    }
+    else {
+      $this->assertRegExp($pattern, $string, $message);
+    }
+  }
+
 }
