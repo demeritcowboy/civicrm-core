@@ -972,6 +972,9 @@ class CRM_Utils_System {
    *   The fixed URL.
    */
   public static function fixURL($url) {
+    if ($url === NULL) {
+      return NULL;
+    }
     $components = parse_url($url);
 
     if (!$components) {

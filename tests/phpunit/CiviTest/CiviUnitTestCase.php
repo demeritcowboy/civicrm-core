@@ -52,6 +52,7 @@ use Civi\Test\GenericAssertionsTrait;
 use Civi\Test\LocaleTestTrait;
 use Civi\Test\MailingTestTrait;
 use League\Csv\Reader;
+use Yoast\PHPUnitPolyfills\Polyfills\AssertionRenames;
 
 /**
  *  Include class definitions
