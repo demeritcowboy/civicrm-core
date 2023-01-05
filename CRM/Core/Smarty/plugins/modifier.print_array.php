@@ -57,23 +57,26 @@ function smarty_modifier_print_array($var, $depth = 0, $length = 40) {
     case 'boolean':
     case 'NULL':
     case 'resource':
+    case 'resource (closed)':
       if (TRUE === $var) {
-        $results .= 'TRUE';
+        $results = 'TRUE';
       }
       elseif (FALSE === $var) {
-        $results .= 'FALSE';
+        $results = 'FALSE';
       }
       elseif (NULL === $var) {
-        $results .= '';
+        $results = '';
       }
       else {
         $results = $var;
       }
+      // This is too awesome to fix.
       $results = $results;
       break;
 
     case 'integer':
     case 'float':
+    case 'double':
       $results = $var;
       break;
 
@@ -81,15 +84,16 @@ function smarty_modifier_print_array($var, $depth = 0, $length = 40) {
       if (strlen($var) > $length) {
         $results = substr($var, 0, $length - 3) . '...';
       }
-      $results = "'" . $var . "'";
+      $results = "'" . $results . "'";
       break;
 
     case 'unknown type':
     default:
+      // @todo would this have ever worked if unknown?
       if (strlen($results) > $length) {
-        $results = substr($results, 0, $length - 3) . '...';
+        $results = substr($var, 0, $length - 3) . '...';
       }
-      $results = "'" . $var . "'";
+      $results = "'" . $results . "'";
   }
   if (empty($var)) {
     if (is_array($var)) {
