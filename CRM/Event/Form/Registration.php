@@ -453,6 +453,8 @@ class CRM_Event_Form_Registration extends CRM_Core_Form {
       }
     }
 
+    $this->assign('currency', $params['currencyID']);
+
     $this->assign('address', CRM_Utils_Address::getFormattedBillingAddressFieldsFromParameters($params, $this->_bltID));
 
     // The concept of contributeMode is deprecated.
