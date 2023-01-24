@@ -478,20 +478,20 @@ ENDDETAILS
     $newData['case-email-text'][1] = "This is text only<br />\r\nand has two consecutive lines.<br />\r\n<br />\r\nAnd one blank line.";
     $newData['case-inbound-text'][1] = "This is text only<br />\r\nand has two consecutive lines.<br />\r\n<br />\r\nAnd one blank line.";
 
-    $newData['case-meeting-html'][1] = "<p>This is html only</p><br />\r\n<br />\r\n<p>And it usually looks like this.</p><br />\r\n<br />\r\n<p>With p's and newlines between the p's.</p>";
-    $newData['case-bulkemail-html'][1] = "<p>This is html only</p><br />\r\n<br />\r\n<p>And it usually looks like this.</p><br />\r\n<br />\r\n<p>With p's and newlines between the p's.</p>";
-    $newData['case-email-html'][1] = "<p>This is html only</p><br />\r\n<br />\r\n<p>And it usually looks like this.</p><br />\r\n<br />\r\n<p>With p's and newlines between the p's.</p>";
-    $newData['case-inbound-html'][1] = "<p>This is html only</p><br />\r\n<br />\r\n<p>And it usually looks like this.</p><br />\r\n<br />\r\n<p>With p's and newlines between the p's.</p>";
+    $newData['case-meeting-html'][1] = "<p>This is html only</p>\r\n\r\n<p>And it usually looks like this.</p>\r\n\r\n<p>With p's and newlines between the p's.</p>";
+    $newData['case-bulkemail-html'][1] = "<p>This is html only</p>\r\n\r\n<p>And it usually looks like this.</p>\r\n\r\n<p>With p's and newlines between the p's.</p>";
+    $newData['case-email-html'][1] = "<p>This is html only</p>\r\n\r\n<p>And it usually looks like this.</p>\r\n\r\n<p>With p's and newlines between the p's.</p>";
+    $newData['case-inbound-html'][1] = "<p>This is html only</p>\r\n\r\n<p>And it usually looks like this.</p>\r\n\r\n<p>With p's and newlines between the p's.</p>";
 
     $newData['case-meeting-mixed-text'][1] = "This is mixed<br />\r\nand has two consecutive lines.<br />\r\n<br />\r\nAnd one blank line.";
     $newData['case-bulkemail-mixed-text'][1] = "This is mixed<br />\r\nand has two consecutive lines.<br />\r\n<br />\r\nAnd one blank line.";
     $newData['case-email-mixed-text'][1] = "This is mixed<br />\r\nand has two consecutive lines.<br />\r\n<br />\r\nAnd one blank line.";
     $newData['case-inbound-mixed-text'][1] = "This is mixed<br />\r\nand has two consecutive lines.<br />\r\n<br />\r\nAnd one blank line.";
 
-    $newData['case-meeting-mixed-html'][1] = "<p>This is mixed<br /><br />\r\nand has two consecutive lines.</p><br />\r\n<br />\r\n<p>And one blank line.</p><br />";
-    $newData['case-bulkemail-mixed-html'][1] = "<p>This is mixed<br /><br />\r\nand has two consecutive lines.</p><br />\r\n<br />\r\n<p>And one blank line.</p><br />";
-    $newData['case-email-mixed-html'][1] = "<p>This is mixed<br /><br />\r\nand has two consecutive lines.</p><br />\r\n<br />\r\n<p>And one blank line.</p><br />";
-    $newData['case-inbound-mixed-html'][1] = "<p>This is mixed<br /><br />\r\nand has two consecutive lines.</p><br />\r\n<br />\r\n<p>And one blank line.</p><br />";
+    $newData['case-meeting-mixed-html'][1] = "<p>This is mixed<br />\r\nand has two consecutive lines.</p>\r\n\r\n<p>And one blank line.</p>";
+    $newData['case-bulkemail-mixed-html'][1] = "<p>This is mixed<br />\r\nand has two consecutive lines.</p>\r\n\r\n<p>And one blank line.</p>";
+    $newData['case-email-mixed-html'][1] = "<p>This is mixed<br />\r\nand has two consecutive lines.</p>\r\n\r\n<p>And one blank line.</p>";
+    $newData['case-inbound-mixed-html'][1] = "<p>This is mixed<br />\r\nand has two consecutive lines.</p>\r\n\r\n<p>And one blank line.</p>";
 
     return $newData;
   }
