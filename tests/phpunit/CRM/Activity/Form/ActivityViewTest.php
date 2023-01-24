@@ -175,7 +175,7 @@ and has two consecutive lines.
 And one blank line.
 ENDDETAILS
         ],
-        "<span class=\"crm-frozen-field\">This is text only\r\nand has two consecutive lines.\r\n\r\nAnd one blank line.</span>\n",
+        "<span class=\"crm-frozen-field\">This is text only<br />\r\nand has two consecutive lines.<br />\r\n<br />\r\nAnd one blank line.</span>\n",
       ],
 
       'bulkemail-text' => [
@@ -265,7 +265,7 @@ ENDDETAILS
 <p>With p&#39;s and newlines between the p&#39;s.</p>
 ENDDETAILS
         ],
-        "<td class=\"view-value report\"><p>This is html only</p><br />\r\n<br />\r\n<p>And it usually looks like this.</p><br />\r\n<br />\r\n<p>With p's and newlines between the p's.</p></td>",
+        "<td class=\"view-value report\"><p>This is html only</p>\r\n\r\n<p>And it usually looks like this.</p>\r\n\r\n<p>With p's and newlines between the p's.</p></td>",
       ],
 
       'inbound-html' => [
@@ -281,7 +281,7 @@ ENDDETAILS
 <p>With p&#39;s and newlines between the p&#39;s.</p>
 ENDDETAILS
         ],
-        "<span class=\"crm-frozen-field\"><p>This is html only</p><br />\r\n<br />\r\n<p>And it usually looks like this.</p><br />\r\n<br />\r\n<p>With p's and newlines between the p's.</p></span>\n",
+        "<span class=\"crm-frozen-field\"><p>This is html only</p>\r\n\r\n<p>And it usually looks like this.</p>\r\n\r\n<p>With p's and newlines between the p's.</p></span>\n",
       ],
 
       // Now mixed with text first
@@ -303,7 +303,7 @@ and has two consecutive lines.</p>
 -ALTERNATIVE END-
 ENDDETAILS
         ],
-        "<td class=\"view-value\">\n       \r\nThis is mixed\r\nand has two consecutive lines.\r\n\r\nAnd one blank line.",
+        "This is mixed<br />\r\nand has two consecutive lines.<br />\r\n<br />\r\nAnd one blank line.",
       ],
 
       'bulkemail-mixed-text' => [
@@ -432,7 +432,7 @@ And one blank line.
 -ALTERNATIVE END-
 ENDDETAILS
         ],
-        "<td class=\"view-value report\"><br />\r\n<p>This is mixed<br /><br />\r\nand has two consecutive lines.</p><br />\r\n<br />\r\n<p>And one blank line.</p>",
+        "<p>This is mixed<br />\r\nand has two consecutive lines.</p>\r\n\r\n<p>And one blank line.</p>",
       ],
 
       'inbound-mixed-html' => [
@@ -453,7 +453,7 @@ And one blank line.
 -ALTERNATIVE END-
 ENDDETAILS
         ],
-        "<td class=\"view-value\">\n       <br />\r\n<p>This is mixed<br /><br />\r\nand has two consecutive lines.</p><br />\r\n<br />\r\n<p>And one blank line.</p>",
+        "<p>This is mixed<br />\r\nand has two consecutive lines.</p>\r\n\r\n<p>And one blank line.</p>",
       ],
     ];
   }
