@@ -160,16 +160,23 @@ class CRM_Activity_Form_ActivityViewTest extends CiviUnitTestCase {
 
     $this->unsetRequestVars($input['url']);
 
+    // See note in activityTypesProvider why we do this
+    $contents = str_replace(["\r", "\n"], '', $contents);
+
     $this->assertStringContainsString($expected, $contents);
   }
 
   /**
    * data provider for testNewlinesLookRight() for non-case activities
+   *
+   * Unfortunately there seem to be differences in the output of `purify` on
+   * unix vs windows, and also on unix it seems to even work differently in
+   * tests than when run normally! So we strip all chr(10) and chr(13) when
+   * comparing the result.
+   *
    * @return array
    */
   public function activityTypesProvider(): array {
-    // Unfortunately we need to use PHP_EOL because purify gives different output
-    // on windows and linux.
     $data = [
       'meeting-text' => [
         [
@@ -182,7 +189,7 @@ and has two consecutive lines.
 And one blank line.
 ENDDETAILS
         ],
-        '<span class="crm-frozen-field">This is text only<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.</span>',
+        '<span class="crm-frozen-field">This is text only<br />and has two consecutive lines.<br /><br />And one blank line.</span>',
       ],
 
       'bulkemail-text' => [
@@ -197,7 +204,7 @@ And one blank line.
 ENDDETAILS
         ],
         // Note this is the summary of the actual bulk mailing text. The above details are a bit irrelevant for what we're testing here.
-        "<td class=\"label nowrap\">Text Message</td><td>This<br />\naddress<br />\n<br />\nis not ours:...<br />",
+        '<td class="label nowrap">Text Message</td><td>This<br />address<br /><br />is not ours:...<br />',
       ],
 
       'email-text' => [
@@ -211,7 +218,7 @@ and has two consecutive lines.
 And one blank line.
 ENDDETAILS
         ],
-        "<td class=\"view-value report\">\n                   This is text only<br />" . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.',
+        '<td class="view-value report">                   This is text only<br />and has two consecutive lines.<br /><br />And one blank line.',
       ],
 
       'inbound-text' => [
@@ -225,7 +232,7 @@ and has two consecutive lines.
 And one blank line.
 ENDDETAILS
         ],
-        '<span class="crm-frozen-field">This is text only<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.</span>',
+        '<span class="crm-frozen-field">This is text only<br />and has two consecutive lines.<br /><br />And one blank line.</span>',
       ],
 
       // Now html only
@@ -241,7 +248,7 @@ ENDDETAILS
 <p>With p&#39;s and newlines between the p&#39;s.</p>
 ENDDETAILS
         ],
-        '<span class="crm-frozen-field"><p>This is html only</p>' . PHP_EOL . PHP_EOL . '<p>And it usually looks like this.</p>' . PHP_EOL . PHP_EOL . "<p>With p's and newlines between the p's.</p></span>",
+        '<span class="crm-frozen-field"><p>This is html only</p><p>And it usually looks like this.</p><p>With p\'s and newlines between the p\'s.</p></span>',
       ],
 
       'bulkemail-html' => [
@@ -257,7 +264,7 @@ ENDDETAILS
 ENDDETAILS
         ],
         // Note this is the summary of the actual bulk mailing text. The above details are a bit irrelevant for what we're testing here.
-        "<td class=\"label nowrap\">Text Message</td><td>This<br />\naddress<br />\n<br />\nis not ours:...<br />",
+        '<td class="label nowrap">Text Message</td><td>This<br />address<br /><br />is not ours:...<br />',
       ],
 
       'email-html' => [
@@ -272,7 +279,7 @@ ENDDETAILS
 <p>With p&#39;s and newlines between the p&#39;s.</p>
 ENDDETAILS
         ],
-        "<td class=\"view-value report\">\n                   <p>This is html only</p>" . PHP_EOL . PHP_EOL . '<p>And it usually looks like this.</p>' . PHP_EOL . PHP_EOL . "<p>With p's and newlines between the p's.</p>",
+        '<td class="view-value report">                   <p>This is html only</p><p>And it usually looks like this.</p><p>With p\'s and newlines between the p\'s.</p>',
       ],
 
       'inbound-html' => [
@@ -288,7 +295,7 @@ ENDDETAILS
 <p>With p&#39;s and newlines between the p&#39;s.</p>
 ENDDETAILS
         ],
-        '<span class="crm-frozen-field"><p>This is html only</p>' . PHP_EOL . PHP_EOL . '<p>And it usually looks like this.</p>' . PHP_EOL . PHP_EOL . "<p>With p's and newlines between the p's.</p></span>\n",
+        '<span class="crm-frozen-field"><p>This is html only</p><p>And it usually looks like this.</p><p>With p\'s and newlines between the p\'s.</p></span>',
       ],
 
       // Now mixed with text first
@@ -310,7 +317,7 @@ and has two consecutive lines.</p>
 -ALTERNATIVE END-
 ENDDETAILS
         ],
-        'This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.',
+        'This is mixed<br />and has two consecutive lines.<br /><br />And one blank line.',
       ],
 
       'bulkemail-mixed-text' => [
@@ -332,7 +339,7 @@ and has two consecutive lines.</p>
 ENDDETAILS
         ],
         // Note this is the summary of the actual bulk mailing text. The above details are a bit irrelevant for what we're testing here.
-        "<td class=\"label nowrap\">Text Message</td><td>This<br />\naddress<br />\n<br />\nis not ours:...<br />",
+        '<td class="label nowrap">Text Message</td><td>This<br />address<br /><br />is not ours:...<br />',
       ],
 
       'email-mixed-text' => [
@@ -353,7 +360,7 @@ and has two consecutive lines.</p>
 -ALTERNATIVE END-
 ENDDETAILS
         ],
-        "<td class=\"view-value report\">\n                   <br />" . PHP_EOL . 'This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.<br />',
+        '<td class="view-value report">                   <br />This is mixed<br />and has two consecutive lines.<br /><br />And one blank line.<br />',
       ],
 
       'inbound-mixed-text' => [
@@ -374,7 +381,7 @@ and has two consecutive lines.</p>
 -ALTERNATIVE END-
 ENDDETAILS
         ],
-        "<td class=\"view-value\">\n       <br />" . PHP_EOL . 'This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.<br />',
+        '<td class="view-value">       <br />This is mixed<br />and has two consecutive lines.<br /><br />And one blank line.<br />',
       ],
 
       // Now mixed with html first
@@ -396,7 +403,7 @@ And one blank line.
 -ALTERNATIVE END-
 ENDDETAILS
         ],
-        "<td class=\"view-value\">\n       " . PHP_EOL . '<p>This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.</p>' . PHP_EOL . PHP_EOL . '<p>And one blank line.</p>',
+        '<td class="view-value">       <p>This is mixed<br />and has two consecutive lines.</p><p>And one blank line.</p>',
       ],
 
       'bulkemail-mixed-html' => [
@@ -418,7 +425,7 @@ And one blank line.
 ENDDETAILS
         ],
         // Note this is the summary of the actual bulk mailing text. The above details are a bit irrelevant for what we're testing here.
-        "<td class=\"label nowrap\">Text Message</td><td>This<br />\naddress<br />\n<br />\nis not ours:...<br />",
+        '<td class="label nowrap">Text Message</td><td>This<br />address<br /><br />is not ours:...<br />',
       ],
 
       'email-mixed-html' => [
@@ -439,7 +446,7 @@ And one blank line.
 -ALTERNATIVE END-
 ENDDETAILS
         ],
-        '<p>This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.</p>' . PHP_EOL . PHP_EOL . '<p>And one blank line.</p>',
+        '<p>This is mixed<br />and has two consecutive lines.</p><p>And one blank line.</p>',
       ],
 
       'inbound-mixed-html' => [
@@ -460,7 +467,7 @@ And one blank line.
 -ALTERNATIVE END-
 ENDDETAILS
         ],
-        '<p>This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.</p>' . PHP_EOL . PHP_EOL . '<p>And one blank line.</p>',
+        '<p>This is mixed<br />and has two consecutive lines.</p><p>And one blank line.</p>',
       ],
     ];
 
@@ -488,26 +495,26 @@ ENDDETAILS
       $newData['case-' . $key][0]['url'] = 'civicrm/case/activity/view?reset=1&aid=%%id%%&cid=%%cid%%&caseid=%%caseid%%';
     }
     $newData['case-meeting-text'][0]['skip'] = FALSE;
-    $newData['case-meeting-text'][1] = 'This is text only<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.';
-    $newData['case-bulkemail-text'][1] = 'This is text only<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.';
-    $newData['case-email-text'][1] = 'This is text only<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.';
-    $newData['case-inbound-text'][1] = 'This is text only<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.';
+    $newData['case-meeting-text'][1] = 'This is text only<br />and has two consecutive lines.<br /><br />And one blank line.';
+    $newData['case-bulkemail-text'][1] = 'This is text only<br />and has two consecutive lines.<br /><br />And one blank line.';
+    $newData['case-email-text'][1] = 'This is text only<br />and has two consecutive lines.<br /><br />And one blank line.';
+    $newData['case-inbound-text'][1] = 'This is text only<br />and has two consecutive lines.<br /><br />And one blank line.';
 
-    $newData['case-meeting-html'][1] = '<p>This is html only</p>' . PHP_EOL . PHP_EOL . '<p>And it usually looks like this.</p>' . PHP_EOL . PHP_EOL . "<p>With p's and newlines between the p's.</p>";
-    $newData['case-bulkemail-html'][1] = '<p>This is html only</p>' . PHP_EOL . PHP_EOL . '<p>And it usually looks like this.</p>' . PHP_EOL . PHP_EOL . "<p>With p's and newlines between the p's.</p>";
-    $newData['case-email-html'][1] = '<p>This is html only</p>' . PHP_EOL . PHP_EOL . '<p>And it usually looks like this.</p>' . PHP_EOL . PHP_EOL . "<p>With p's and newlines between the p's.</p>";
-    $newData['case-inbound-html'][1] = '<p>This is html only</p>' . PHP_EOL . PHP_EOL . '<p>And it usually looks like this.</p>' . PHP_EOL . PHP_EOL . "<p>With p's and newlines between the p's.</p>";
+    $newData['case-meeting-html'][1] = "<p>This is html only</p><p>And it usually looks like this.</p><p>With p's and newlines between the p's.</p>";
+    $newData['case-bulkemail-html'][1] = "<p>This is html only</p><p>And it usually looks like this.</p><p>With p's and newlines between the p's.</p>";
+    $newData['case-email-html'][1] = "<p>This is html only</p><p>And it usually looks like this.</p><p>With p's and newlines between the p's.</p>";
+    $newData['case-inbound-html'][1] = "<p>This is html only</p><p>And it usually looks like this.</p><p>With p's and newlines between the p's.</p>";
 
     $newData['case-meeting-mixed-text'][0]['skip'] = FALSE;
-    $newData['case-meeting-mixed-text'][1] = 'This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.';
-    $newData['case-bulkemail-mixed-text'][1] = 'This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.';
-    $newData['case-email-mixed-text'][1] = 'This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.';
-    $newData['case-inbound-mixed-text'][1] = 'This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.<br />' . PHP_EOL . '<br />' . PHP_EOL . 'And one blank line.';
+    $newData['case-meeting-mixed-text'][1] = 'This is mixed<br />and has two consecutive lines.<br /><br />And one blank line.';
+    $newData['case-bulkemail-mixed-text'][1] = 'This is mixed<br />and has two consecutive lines.<br /><br />And one blank line.';
+    $newData['case-email-mixed-text'][1] = 'This is mixed<br />and has two consecutive lines.<br /><br />And one blank line.';
+    $newData['case-inbound-mixed-text'][1] = 'This is mixed<br />and has two consecutive lines.<br /><br />And one blank line.';
 
-    $newData['case-meeting-mixed-html'][1] = '<p>This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.</p>' . PHP_EOL . PHP_EOL . '<p>And one blank line.</p>';
-    $newData['case-bulkemail-mixed-html'][1] = '<p>This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.</p>' . PHP_EOL . PHP_EOL . '<p>And one blank line.</p>';
-    $newData['case-email-mixed-html'][1] = '<p>This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.</p>' . PHP_EOL . PHP_EOL . '<p>And one blank line.</p>';
-    $newData['case-inbound-mixed-html'][1] = '<p>This is mixed<br />' . PHP_EOL . 'and has two consecutive lines.</p>' . PHP_EOL . PHP_EOL . '<p>And one blank line.</p>';
+    $newData['case-meeting-mixed-html'][1] = '<p>This is mixed<br />and has two consecutive lines.</p><p>And one blank line.</p>';
+    $newData['case-bulkemail-mixed-html'][1] = '<p>This is mixed<br />and has two consecutive lines.</p><p>And one blank line.</p>';
+    $newData['case-email-mixed-html'][1] = '<p>This is mixed<br />and has two consecutive lines.</p><p>And one blank line.</p>';
+    $newData['case-inbound-mixed-html'][1] = '<p>This is mixed<br />and has two consecutive lines.</p><p>And one blank line.</p>';
 
     return $newData;
   }
