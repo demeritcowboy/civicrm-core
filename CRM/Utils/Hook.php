@@ -248,7 +248,7 @@ abstract class CRM_Utils_Hook {
     // to reproduce the issue are pretty intricate.
     $result = [];
 
-    $fnNames = $this->cache->get($fnSuffix);
+    $fnNames = NULL;
     if (!is_array($fnNames)) {
       $fnNames = [];
       if ($civiModules !== NULL) {
