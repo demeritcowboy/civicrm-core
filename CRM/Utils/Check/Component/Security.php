@@ -462,7 +462,15 @@ class CRM_Utils_Check_Component_Security extends CRM_Utils_Check_Component {
     }
 
     if ($this->fileExists("$url/$file")) {
-      $content = @file_get_contents("$url/$file");
+      $content = '';
+      try {
+        $response = (new \GuzzleHttp\Client())->request('GET', "$url/$file", [
+          'timeout' => \Civi::settings()->get('http_timeout'),
+        ]);
+        $content = $response->getBody()->getContents();
+      }
+      catch (\GuzzleHttp\Exception\GuzzleException $e) {
+      }
       if (preg_match('/delete me/', $content)) {
         $result = TRUE;
       }
