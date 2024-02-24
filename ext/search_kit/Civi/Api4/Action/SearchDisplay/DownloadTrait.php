@@ -9,16 +9,11 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 /**
  * Download the results of a SearchDisplay as a spreadsheet.
  *
- * Disposition determines whether the output is sent directly to the browser
- * or returned as a string, except for format=array which is always an array.
- *
  * @method $this setFormat(string $format)
  * @method string getFormat()
- * @method $this setDisposition(string $disposition)
- * @method string getDisposition()
  * @package Civi\Api4\Action\SearchDisplay
  */
-class Download extends AbstractRunAction {
+trait DownloadTrait {
 
   /**
    * Requested file format.
@@ -48,19 +43,14 @@ class Download extends AbstractRunAction {
     ],
   ];
 
-  /**
-   * Whether to output to the browser or return a string.
-   *
-   * @var string
-   * @options attachment,inline
-   */
-  protected $disposition = 'attachment';
+  // temp for quick test
+  protected $disposition = 'inline';
 
   /**
    * @param \Civi\Api4\Result\SearchDisplayRunResult $result
    * @throws \CRM_Core_Exception
    */
-  protected function processResult(\Civi\Api4\Result\SearchDisplayRunResult $result) {
+  protected function processDownload(\Civi\Api4\Result\SearchDisplayRunResult $result) {
     $entityName = $this->savedSearch['api_entity'];
     $apiParams =& $this->_apiParams;
     $settings =& $this->display['settings'];
@@ -110,8 +100,20 @@ class Download extends AbstractRunAction {
       }
     }
 
+    $this->processResult2($result, $rows, $columns);
+  }
+
+  protected function getFilename(): string {
     // Unicode-safe filename for download
-    $fileName = \CRM_Utils_File::makeFilenameWithUnicode($this->display['label']) . '.' . $this->format;
+    return \CRM_Utils_File::makeFilenameWithUnicode($this->display['label']) . '.' . $this->format;
+  }
+
+  /**
+   * @param \Civi\Api4\Result\SearchDisplayRunResult $result
+   * @throws \CRM_Core_Exception
+   */
+  protected function processResult2(\Civi\Api4\Result\SearchDisplayRunResult $result, array $rows, array $columns) {
+    $fileName = $this->getFilename();
 
     switch ($this->format) {
       case 'array':
@@ -125,7 +127,7 @@ class Download extends AbstractRunAction {
       case 'csv':
         $output = $this->outputCSV($rows, $columns, $fileName);
         if ($output) {
-          $result[] = $output;
+          $result->exchangeArray([$output]);
           return;
         }
         break;
