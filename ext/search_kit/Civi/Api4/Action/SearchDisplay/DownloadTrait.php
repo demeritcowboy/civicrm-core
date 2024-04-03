@@ -43,7 +43,10 @@ trait DownloadTrait {
     ],
   ];
 
-  // temp for quick test
+  /**
+   * @var string
+   * temp for quick test
+   */
   protected $disposition = 'inline';
 
   /**
