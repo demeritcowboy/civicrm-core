@@ -99,21 +99,18 @@ class CRM_Core_BAO_Country extends CRM_Core_DAO_Country {
    * @return array
    */
   public static function pinnedContactCountries($availableCountries) {
-    if (!isset(Civi::$statics[__CLASS__]['cachedPinnedContactCountries'])) {
-      $pinnedContactCountries = Civi::settings()->get('pinnedContactCountries');
-      $pinnedCountries = [];
-      if (!empty($pinnedContactCountries)) {
-        foreach ($pinnedContactCountries as $pinnedContactCountry) {
-          // pinned country must exist in available country list.
-          if (array_key_exists($pinnedContactCountry, $availableCountries)) {
-            $pinnedCountries[$pinnedContactCountry] = $availableCountries[$pinnedContactCountry];
-          }
+    $pinnedContactCountries = Civi::settings()->get('pinnedContactCountries');
+    $pinnedCountries = [];
+    if (!empty($pinnedContactCountries)) {
+      foreach ($pinnedContactCountries as $pinnedContactCountry) {
+        // pinned country must exist in available country list.
+        if (array_key_exists($pinnedContactCountry, $availableCountries)) {
+          $pinnedCountries[$pinnedContactCountry] = $availableCountries[$pinnedContactCountry];
         }
       }
-      Civi::$statics[__CLASS__]['cachedPinnedContactCountries'] = $pinnedCountries;
     }
 
-    return Civi::$statics[__CLASS__]['cachedPinnedContactCountries'];
+    return $pinnedCountries;
   }
 
   /**
