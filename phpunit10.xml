@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         backupGlobals="false"
+         backupStaticProperties="false"
+         colors="true"
+         processIsolation="false"
+         failOnWarning="true"
+         failOnNotice="true"
+         failOnDeprecation="true"
+         stopOnFailure="false"
+         displayDetailsOnIncompleteTests="true"
+         displayDetailsOnSkippedTests="true"
+         displayDetailsOnTestsThatTriggerDeprecations="true"
+         displayDetailsOnPhpunitDeprecations="true"
+         displayDetailsOnTestsThatTriggerErrors="true"
+         displayDetailsOnTestsThatTriggerNotices="true"
+         displayDetailsOnTestsThatTriggerWarnings="true"
+         stderr="true"
+         beStrictAboutTestsThatDoNotTestAnything="false"
+         bootstrap="tests/phpunit/CiviTest/bootstrap.php"
+         cacheResult="false"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.5/phpunit.xsd">
+  <testsuites>
+    <testsuite name="api_v3_AllTests">
+      <directory>./tests/phpunit/api</directory>
+    </testsuite>
+    <testsuite name="CRM_AllTests">
+      <directory>./tests/phpunit/CRM</directory>
+    </testsuite>
+    <testsuite name="Civi_AllTests">
+      <directory>./tests/phpunit/Civi</directory>
+    </testsuite>
+  </testsuites>
+  <extensions>
+    <bootstrap class="Civi\Test\CiviTestListener">
+    </bootstrap>
+  </extensions>
+</phpunit>
