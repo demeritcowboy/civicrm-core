@@ -88,6 +88,52 @@ class CRM_Logging_Differ {
           $contactIdClause = "AND (contact_id_a = %3 OR contact_id_b = %3)";
           break;
 
+        case 'civicrm_dedupe_exception':
+          $contactClause = "AND (contact_id1 = %3 OR contact_id2 = %3)";
+          break;
+
+        case 'civicrm_membership_type':
+          $contactClause = "AND member_of_contact_id = %3";
+          break;
+
+        case 'civicrm_report_instance':
+          $contactIdClause = "AND (created_id = %3 OR owner_id = %3)";
+          break;
+
+        case 'civicrm_contribution_page':
+        case 'civicrm_custom_group':
+        case 'civicrm_event':
+        case 'civicrm_file':
+        case 'civicrm_mailing_abtest':
+        case 'civicrm_print_label':
+        case 'civicrm_tag':
+        case 'civicrm_uf_group':
+        case 'civicrm_user_job':
+          $contactIdClause = "AND created_id = %3";
+          break;
+
+        case 'civicrm_mailing':
+          // @todo should it also check scheduled_id or approver_id?
+          // Does even created_id make sense? What does any of this mean for a mailing?
+          $contactIdClause = "AND created_id = %3";
+          break;
+
+        case 'civicrm_batch':
+        case 'civicrm_group':
+        case 'civicrm_saved_search':
+        case 'civicrm_site_token':
+          $contactIdClause = "AND (created_id = %3 OR modified_id = %3)";
+          break;
+
+        case 'civicrm_campaign':
+        case 'civicrm_survey':
+          $contactIdClause = "AND (created_id = %3 OR last_modified_id = %3)";
+          break;
+
+        case 'civicrm_group_organization':
+          $contactIdClause = "AND organization_id = %3";
+          break;
+
         case 'civicrm_activity':
           $activityContacts = CRM_Activity_BAO_ActivityContact::buildOptions('record_type_id', 'validate');
           $sourceID = CRM_Utils_Array::key('Activity Source', $activityContacts);
