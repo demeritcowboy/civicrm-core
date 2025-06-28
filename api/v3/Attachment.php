@@ -135,9 +135,11 @@ function civicrm_api3_attachment_create($params) {
   $fileDao = CRM_Core_BAO_File::create($file);
   $fileDao->find(TRUE);
 
-  $entityFileDao->copyValues($entityFile);
-  $entityFileDao->file_id = $fileDao->id;
-  $entityFileDao->save();
+  if (!empty($entityFile)) {
+    $entityFileDao->copyValues($entityFile);
+    $entityFileDao->file_id = $fileDao->id;
+    $entityFileDao->save();
+  }
 
   $path = $config->customFileUploadDir . $fileDao->uri;
   if (is_string($content)) {
@@ -360,8 +362,9 @@ function _civicrm_api3_attachment_parse_params($params) {
   }
 
   if (empty($params['entity_table']) && isset($params['field_name'])) {
-    $tableInfo = CRM_Core_BAO_CustomField::getTableColumnGroup(intval(str_replace('custom_', '', $params['field_name'])));
-    $entityFile['entity_table'] = $tableInfo[0];
+//    $tableInfo = CRM_Core_BAO_CustomField::getTableColumnGroup(intval(str_replace('custom_', '', $params['field_name'])));
+//    $entityFile['entity_table'] = $tableInfo[0];
+    unset($entityFile['entity_id']);
   }
 
   $name = NULL;

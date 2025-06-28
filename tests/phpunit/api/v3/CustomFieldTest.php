@@ -467,6 +467,18 @@ class api_v3_CustomFieldTest extends CiviUnitTestCase {
       'field_name' => $cfId,
       'entity_id' => $cid,
     ]);
+    $dao = CRM_Core_DAO::executeQuery("SELECT * FROM civicrm_entity_file");
+    while ($dao->fetch()) {
+      fwrite(STDERR, print_r($dao, true));
+    }
+    $dao = CRM_Core_DAO::executeQuery("SELECT * FROM civicrm_file");
+    while ($dao->fetch()) {
+      fwrite(STDERR, print_r($dao, true));
+    }
+    $dao = CRM_Core_DAO::executeQuery("SELECT * FROM `{$customGroup['values'][$customGroup['id']]['table_name']}`");
+    while ($dao->fetch()) {
+      fwrite(STDERR, print_r($dao, true));
+    }
     $this->assertAttachmentExistence(TRUE, $attachment);
 
     $result = $this->callAPISuccess('contact', 'getsingle', [
