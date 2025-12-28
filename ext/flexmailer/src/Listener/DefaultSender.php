@@ -33,8 +33,47 @@ class DefaultSender extends AutoService {
 
     $job = $e->getJob();
     $mailing = $e->getMailing();
+    $useSparkpost = FALSE;
+    $taskCount = count($e->getTasks());
+    $sparkpost_current_limit = \Civi::settings()->get('torahinmotion_sparkpost_max') ?? 900;
+    if ($taskCount < $sparkpost_current_limit) {
+      $mailer_settings = \Civi::settings()->get('mailing_backend');
+      $ch = curl_init('https://api.sparkpost.com/api/v1/usage');
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+      curl_setopt($ch, CURLOPT_POST, FALSE);
+      curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: ' . \Civi::service('crypto.token')->decrypt($mailer_settings['smtpPassword']),
+      ]);
+      $response = curl_exec($ch);
+      curl_close($ch);
+      $usage = json_decode($response);
+      if (!empty($usage->results)) {
+        $usageDay = $usage->results->messaging->day->used ?? NULL;
+        $usageMonth = $usage->results->messaging->month->used ?? NULL;
+        if (($usageDay !== NULL && ($usageDay + $taskCount) < $sparkpost_current_limit)
+          && ($usageMonth !== NULL && ($usageMonth + $taskCount) < 90000)) {
+          $useSparkpost = TRUE;
+        }
+      }
+    }
     $job_date = \CRM_Utils_Date::isoToMysql($job->scheduled_date);
-    $mailer = \Civi::service('pear_mail');
+    if ($useSparkpost) {
+      $mailer_settings['smtpServer'] = 'smtp.sparkpostmail.com';
+      $mailer_settings['smtpPort'] = '587';
+      $mailer_settings['smtpAuth'] = '1';
+      \Civi::settings()->set('mailing_backend', $mailer_settings);
+      // We can't use the service because it is cached and has actually
+      // been created in MailingJob.php at the beginning.
+      $mailer = \CRM_Utils_Mail::createMailer();
+      $mailer_settings['smtpServer'] = 'mail';
+      $mailer_settings['smtpPort'] = '25';
+      $mailer_settings['smtpAuth'] = '0';
+      \Civi::settings()->set('mailing_backend', $mailer_settings);
+    }
+    else {
+      $mailer = \Civi::service('pear_mail');
+    }
 
     $targetParams = $deliveredParams = [];
     $count = 0;
