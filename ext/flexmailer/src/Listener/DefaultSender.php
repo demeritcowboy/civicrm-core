@@ -34,6 +34,19 @@ class DefaultSender extends AutoService {
     $job = $e->getJob();
     $mailing = $e->getMailing();
     $useSparkpost = FALSE;
+    $hotmailProblems = \Civi::settings()->get('torahinmotion_hotmail_problems') ?? FALSE;
+    static $hotmail_domains = [
+      'hotmail.fr' => 1,
+      'live.com.au' => 1,
+      'outlook.com' => 1,
+      'live.co.uk' => 1,
+      'live.com' => 1,
+      'live.ca' => 1,
+      'msn.com' => 1,
+      'hotmail.ca' => 1,
+      'hotmail.co.uk' => 1,
+      'hotmail.com' => 1,
+    ];
     $taskCount = count($e->getTasks());
     $sparkpost_current_limit = \Civi::settings()->get('torahinmotion_sparkpost_max') ?? 900;
     if ($taskCount < $sparkpost_current_limit) {
@@ -58,6 +71,7 @@ class DefaultSender extends AutoService {
       }
     }
     $job_date = \CRM_Utils_Date::isoToMysql($job->scheduled_date);
+    $mailer = \Civi::service('pear_mail');
     if ($useSparkpost) {
       $mailer_settings['smtpServer'] = 'smtp.sparkpostmail.com';
       $mailer_settings['smtpPort'] = '587';
@@ -65,14 +79,11 @@ class DefaultSender extends AutoService {
       \Civi::settings()->set('mailing_backend', $mailer_settings);
       // We can't use the service because it is cached and has actually
       // been created in MailingJob.php at the beginning.
-      $mailer = \CRM_Utils_Mail::createMailer();
+      $sparkpostmailer = \CRM_Utils_Mail::createMailer();
       $mailer_settings['smtpServer'] = 'mail';
       $mailer_settings['smtpPort'] = '25';
       $mailer_settings['smtpAuth'] = '0';
       \Civi::settings()->set('mailing_backend', $mailer_settings);
-    }
-    else {
-      $mailer = \Civi::service('pear_mail');
     }
 
     $targetParams = $deliveredParams = [];
@@ -90,6 +101,16 @@ class DefaultSender extends AutoService {
       if (isset($params['abortMailSend']) && $params['abortMailSend']) {
         continue;
       }
+      $isHotmail = FALSE;
+      if ($useSparkpost && $hotmailProblems) {
+        $pos = strrpos($params['toEmail'], '@');
+        if ($pos !== FALSE) {
+          $domain = strtolower(substr($params['toEmail'], $pos + 1));
+          if (isset($hotmail_domains[$domain])) {
+            $isHotmail = TRUE;
+          }
+        }
+      }
       $message = \Civi\FlexMailer\MailParams::convertMailParamsToMime($params);
 
       if (empty($message)) {
@@ -105,7 +126,12 @@ class DefaultSender extends AutoService {
       }
 
       $headers = $message->headers();
-      $result = $mailer->send($headers['To'], $message->headers(), $message->get());
+      if (!$useSparkpost || $isHotmail) {
+        $result = $mailer->send($headers['To'], $message->headers(), $message->get());
+      }
+      else {
+        $result = $sparkpostmailer->send($headers['To'], $message->headers(), $message->get());
+      }
 
       if ($job_date) {
         unset($errorScope);
