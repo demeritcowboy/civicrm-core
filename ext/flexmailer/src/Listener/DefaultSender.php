@@ -33,6 +33,31 @@ class DefaultSender extends AutoService {
 
     $job = $e->getJob();
     $mailing = $e->getMailing();
+
+    $useSparkpost = FALSE;
+    $taskCount = count($e->getTasks());
+    $sparkpost_current_limit = \Civi::settings()->get('torahinmotion_sparkpost_max') ?? 900;
+    if ($taskCount < $sparkpost_current_limit) {
+      $mailer_settings = \Civi::settings()->get('mailing_backend');
+      $ch = curl_init('https://api.sparkpost.com/api/v1/usage');
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+      curl_setopt($ch, CURLOPT_POST, FALSE);
+      curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-Type: application/json',
+        'Authorization: ' . \Civi::service('crypto.token')->decrypt($mailer_settings['smtpPassword']),
+      ]);
+      $response = curl_exec($ch);
+      curl_close($ch);
+      $usage = json_decode($response);
+      if (!empty($usage->results)) {
+        $usageDay = $usage->results->messaging->day->used ?? NULL;
+        $usageMonth = $usage->results->messaging->month->used ?? NULL;
+        if (($usageDay !== NULL && ($usageDay + $taskCount) < $sparkpost_current_limit)
+          && ($usageMonth !== NULL && ($usageMonth + $taskCount) < 90000)) {
+          $useSparkpost = TRUE;
+        }
+      }
+    }
     $job_date = \CRM_Utils_Date::isoToMysql($job->scheduled_date);
     $mailer = \Civi::service('pear_mail');
 
@@ -66,7 +91,13 @@ class DefaultSender extends AutoService {
       }
 
       $headers = $message->headers();
-      $result = $mailer->send($headers['To'], $headers, $message->get());
+      if ($useSparkpost && \CRM_Utils_Mail::isHotmail($params['toEmail'])) {
+        $sparkpostmailer = \CRM_Utils_Mail::getSparkpostMailer();
+        $result = $sparkpostmailer->send($headers['To'], $headers, $message->get());
+      }
+      else {
+        $result = $mailer->send($headers['To'], $headers, $message->get());
+      }
 
       if ($job_date) {
         unset($errorScope);

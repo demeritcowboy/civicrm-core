@@ -201,7 +201,13 @@ class CRM_Utils_Mail {
     list($headers, $message) = self::setEmailHeaders($params);
 
     $to = [$params['toEmail']];
-    $mailer = \Civi::service('pear_mail');
+
+    if (self::isHotmail($params['toEmail'])) {
+      $mailer = self::getSparkpostMailer();
+    }
+    else {
+      $mailer = \Civi::service('pear_mail');
+    }
 
     // CRM-3795, CRM-7355, CRM-7557, CRM-9058, CRM-9887, CRM-12883, CRM-19173 and others ...
     // The PEAR library requires different parameters based on the mailer used:
@@ -715,6 +721,47 @@ class CRM_Utils_Mail {
       $from = '"' . $result['contact_id.display_name'] . '" <' . $result['email'] . '>';
     }
     return $from;
+  }
+
+  public static function isHotmail($e): bool {
+    static $hotmail_domains = [
+      'hotmail.fr' => 1,
+      'live.com.au' => 1,
+      'outlook.com' => 1,
+      'live.co.uk' => 1,
+      'live.com' => 1,
+      'live.ca' => 1,
+      'msn.com' => 1,
+      'hotmail.ca' => 1,
+      'hotmail.co.uk' => 1,
+      'hotmail.com' => 1,
+      'juno.com' => 1,
+    ];
+    $e = rtrim($e, '>');
+    $pos = strrpos($e, '@');
+    if ($pos !== FALSE) {
+      $domain = strtolower(substr($e, $pos + 1));
+      if (isset($hotmail_domains[$domain])) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  public static function getSparkpostMailer() {
+    $mailer_settings = \Civi::settings()->get('mailing_backend');
+    $mailer_settings['smtpServer'] = 'smtp.sparkpostmail.com';
+    $mailer_settings['smtpPort'] = '587';
+    $mailer_settings['smtpAuth'] = '1';
+    \Civi::settings()->set('mailing_backend', $mailer_settings);
+    // We can't use the service because it is cached and may have been
+    // created earlier, e.g. at the beginning of MailingJob.php.
+    $sparkpostmailer = \CRM_Utils_Mail::createMailer();
+    $mailer_settings['smtpServer'] = 'mail';
+    $mailer_settings['smtpPort'] = '25';
+    $mailer_settings['smtpAuth'] = '0';
+    \Civi::settings()->set('mailing_backend', $mailer_settings);
+    return $sparkpostmailer;
   }
 
 }
