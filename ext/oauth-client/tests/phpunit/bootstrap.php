@@ -1,5 +1,7 @@
 <?php
 
+ini_set('include_path', dirname(__DIR__, 2) . PATH_SEPARATOR . ini_get('include_path'));
+
 ini_set('memory_limit', '2G');
 define('CIVICRM_TEST', 1);
 // phpcs:disable
@@ -33,7 +35,7 @@ function cv($cmd, $decode = 'json') {
 
   // Execute `cv` in the original folder. This is a work-around for
   // phpunit/codeception, which seem to manipulate PWD.
-  $cmd = sprintf('cd %s; %s', escapeshellarg(getenv('PWD')), $cmd);
+  //$cmd = sprintf('cd %s; %s', escapeshellarg(getenv('PWD')), $cmd);
 
   $process = proc_open($cmd, $descriptorSpec, $pipes, __DIR__);
   putenv("CV_OUTPUT=$oldOutput");
